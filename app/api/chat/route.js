@@ -124,16 +124,14 @@ async function generateChatResponse(userMessage, history = [], modelId = "openai
     let imageUrl = null;
     let dishName = null;
 
-    // Check for image tag
+    // Check for image tag — extract dish name but do NOT wait for generation here
     const imageMatch = responseText.match(/\[IMAGE:\s*(.+?)\]/i);
     if (imageMatch) {
       dishName = imageMatch[1].trim();
       responseText = responseText.replace(imageMatch[0], "").trim();
-      console.log("[HF] Generating image for:", dishName);
-      imageUrl = await generateHuggingFaceImage(dishName);
     }
 
-    return { text: responseText, imageUrl, dishName };
+    return { text: responseText, imageUrl: null, dishName };
   } catch (err) {
     console.error("[Chat API] Groq error:", err.message);
     // Fallback mode for exhibition if API is overloaded
@@ -164,16 +162,17 @@ export async function POST(request) {
       console.warn("[Chat] DB unavailable:", dbErr.message);
     }
 
-    const { text: replyText, imageUrl, dishName } = await generateChatResponse(message, history, modelId);
+    const { text: replyText, dishName } = await generateChatResponse(message, history, modelId);
 
-    // Save conversation to DB
+    // Save conversation to DB immediately — image will be patched in after generation
+    let savedMessageId = null;
     if (db && (userId || firebaseUID)) {
       try {
         const messagesToSave = [
           { role: "user", text: message, timestamp: new Date() },
-          { role: "bot", text: replyText, imageUrl, dishName, timestamp: new Date() },
+          { role: "bot", text: replyText, dishName, imageUrl: null, imageGenerating: !!dishName, timestamp: new Date() },
         ];
-        await db.ChatSession.findOneAndUpdate(
+        const updated = await db.ChatSession.findOneAndUpdate(
           { $or: [{ userId }, { firebaseUID }] },
           {
             $set: { userId, firebaseUID, updatedAt: new Date() },
@@ -181,15 +180,58 @@ export async function POST(request) {
           },
           { upsert: true, returnDocument: 'after' }
         );
+        // Get the ID of the saved bot message
+        const msgs = updated?.messages || [];
+        savedMessageId = msgs[msgs.length - 1]?._id?.toString();
       } catch (saveErr) {
         console.warn("[Chat] Failed to save:", saveErr.message);
       }
     }
 
-    return NextResponse.json({ text: replyText, imageUrl, dishName });
+    // If a dish was identified, kick off image generation in background
+    if (dishName && savedMessageId && db) {
+      generateHuggingFaceImage(dishName).then(async (imageUrl) => {
+        if (!imageUrl) return;
+        try {
+          await db.ChatSession.updateOne(
+            { $or: [{ userId }, { firebaseUID: userId }], "messages._id": savedMessageId },
+            { $set: { "messages.$.imageUrl": imageUrl, "messages.$.imageGenerating": false } }
+          );
+          console.log("[HF] Image saved to DB for message:", savedMessageId);
+        } catch (e) {
+          console.warn("[HF] Failed to update image in DB:", e.message);
+        }
+      }).catch(e => console.error("[HF] Background image gen failed:", e.message));
+    }
+
+    return NextResponse.json({ text: replyText, dishName, imageGenerating: !!dishName, messageId: savedMessageId });
   } catch (err) {
     console.error("[Chat API] Error:", err.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// ── PATCH: Poll for generated image ───────────────────────────────────────────
+export async function PATCH(request) {
+  try {
+    const { userId, messageId } = await request.json();
+    if (!userId || !messageId) return NextResponse.json({ ready: false });
+
+    const db = await initDb();
+    if (!db) return NextResponse.json({ ready: false });
+
+    const session = await db.ChatSession.findOne({
+      $or: [{ userId }, { firebaseUID: userId }],
+      "messages._id": messageId,
+    });
+    const msg = session?.messages?.find(m => m._id?.toString() === messageId);
+    if (msg?.imageUrl) {
+      return NextResponse.json({ ready: true, imageUrl: msg.imageUrl });
+    }
+    return NextResponse.json({ ready: false });
+  } catch (err) {
+    console.error("[Chat PATCH]", err.message);
+    return NextResponse.json({ ready: false });
   }
 }
 

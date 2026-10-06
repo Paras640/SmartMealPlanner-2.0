@@ -82,9 +82,14 @@ export default function ChatPage() {
             
             const data = await response.json();
             
-            // Reload history to get the actual database IDs and images
+            // Remove typing indicator and reload history
             await loadHistory(user);
             
+            // If image is being generated, start polling for it
+            if (data.imageGenerating && data.messageId) {
+                pollForImage(data.messageId);
+            }
+
             if (!response.ok) {
                 toast.error(data.error || "High demand on AI servers right now. Please try again.");
             }
@@ -95,6 +100,37 @@ export default function ChatPage() {
         } finally {
             setIsSending(false);
         }
+    };
+
+    const pollForImage = (messageId) => {
+        const maxAttempts = 24; // 2 minutes max (24 x 5s)
+        let attempts = 0;
+        const intervalId = setInterval(async () => {
+            attempts++;
+            try {
+                const res = await fetch('/api/chat', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: user.email || user.uid, messageId })
+                });
+                const data = await res.json();
+                if (data.ready && data.imageUrl) {
+                    clearInterval(intervalId);
+                    setMessages(prev => prev.map(m =>
+                        m._id?.toString() === messageId
+                            ? { ...m, imageUrl: data.imageUrl, imageGenerating: false }
+                            : m
+                    ));
+                    toast.success("🎨 Image ready!");
+                }
+            } catch (e) {
+                console.error("Poll error:", e);
+            }
+            if (attempts >= maxAttempts) {
+                clearInterval(intervalId);
+                console.warn("Image generation timed out");
+            }
+        }, 5000);
     };
 
     const handleDelete = async (messageId) => {
@@ -210,14 +246,21 @@ export default function ChatPage() {
                                     ) : (
                                         <>
                                             <span style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{msg.text}</span>
+                                            {msg.imageGenerating && !msg.imageUrl && (
+                                                <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(109,186,95,0.1)', borderRadius: '8px', border: '1px dashed var(--primary-color)' }}>
+                                                    <span style={{ fontSize: '1.2rem', animation: 'spin 1.5s linear infinite' }}>🎨</span>
+                                                    <span style={{ fontSize: '0.9rem', color: 'var(--primary-color)', fontWeight: '500' }}>Generating image... (may take ~30s)</span>
+                                                    <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>⏳</span>
+                                                </div>
+                                            )}
                                             {msg.imageUrl && (
                                                 <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                                     <img 
                                                         src={msg.imageUrl} 
                                                         alt={msg.dishName || "Generated recipe image"} 
-                                                        style={{ width: '100%', maxWidth: '350px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
+                                                        style={{ width: '100%', maxWidth: '350px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} 
                                                     />
-                                                    {msg.dishName && <span style={{ fontSize: '0.85rem', marginTop: '6px', opacity: 0.8 }}>{msg.dishName}</span>}
+                                                    {msg.dishName && <span style={{ fontSize: '0.85rem', marginTop: '6px', opacity: 0.7 }}>🍽️ {msg.dishName}</span>}
                                                 </div>
                                             )}
                                         </>
