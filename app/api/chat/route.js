@@ -24,7 +24,8 @@ Rules:
 - If asked something unrelated, gently redirect: "I'm best at food topics! 🍽️ Can I help with a recipe or meal plan?"
 - For recipe requests: include ingredients list, step-by-step instructions, and approx. calories
 - Keep responses concise but complete (2–5 paragraphs max)
-- Never make up dangerous nutrition advice — recommend consulting a doctor for medical dietary needs`;
+- Never make up dangerous nutrition advice — recommend consulting a doctor for medical dietary needs
+- If you suggest a specific recipe or meal, you MUST append this exact tag at the very end of your response: [IMAGE: Exact Name of Dish]`;
 
 // ── Groq Client ──────────────────────────────────────────────────────────────
 let _groq = null;
@@ -35,6 +36,34 @@ function getGroq() {
   if (!apiKey) return null;
   _groq = new Groq({ apiKey });
   return _groq;
+}
+
+// ── Hugging Face Image Generation ─────────────────────────────────────────────
+async function generateHuggingFaceImage(prompt) {
+  const hfKey = process.env.HUGGINGFACE_API_KEY;
+  if (!hfKey) return null;
+  try {
+    const response = await fetch("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0", {
+      headers: { 
+        Authorization: `Bearer ${hfKey}`, 
+        "Content-Type": "application/json" 
+      },
+      method: "POST",
+      body: JSON.stringify({ 
+        inputs: "professional food photography of " + prompt + ", highly detailed, 4k, delicious, appetizing, cinematic lighting, restaurant quality" 
+      }),
+    });
+    if (!response.ok) {
+      console.warn("[HF API Error]:", response.status, response.statusText);
+      return null;
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    return `data:image/jpeg;base64,${base64}`;
+  } catch (err) {
+    console.error("[HF Image Gen Error]", err.message);
+    return null;
+  }
 }
 
 // ── Fallback (Offline/Overloaded Mode) ──────────────────────────────────────────
@@ -91,9 +120,20 @@ async function generateChatResponse(userMessage, history = [], modelId = "openai
       max_tokens: 800,
     });
 
-    const responseText = completion.choices[0]?.message?.content || "";
+    let responseText = completion.choices[0]?.message?.content || "";
+    let imageUrl = null;
+    let dishName = null;
 
-    return { text: responseText, imageUrl: null, dishName: null };
+    // Check for image tag
+    const imageMatch = responseText.match(/\[IMAGE:\s*(.+?)\]/i);
+    if (imageMatch) {
+      dishName = imageMatch[1].trim();
+      responseText = responseText.replace(imageMatch[0], "").trim();
+      console.log("[HF] Generating image for:", dishName);
+      imageUrl = await generateHuggingFaceImage(dishName);
+    }
+
+    return { text: responseText, imageUrl, dishName };
   } catch (err) {
     console.error("[Chat API] Groq error:", err.message);
     // Fallback mode for exhibition if API is overloaded
@@ -131,7 +171,7 @@ export async function POST(request) {
       try {
         const messagesToSave = [
           { role: "user", text: message, timestamp: new Date() },
-          { role: "bot", text: replyText, timestamp: new Date() },
+          { role: "bot", text: replyText, imageUrl, dishName, timestamp: new Date() },
         ];
         await db.ChatSession.findOneAndUpdate(
           { $or: [{ userId }, { firebaseUID }] },

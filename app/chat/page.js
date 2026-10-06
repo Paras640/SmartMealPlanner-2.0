@@ -208,7 +208,19 @@ export default function ChatPage() {
                                     {msg.isTyping ? (
                                         <span style={{ letterSpacing: '2px', opacity: 0.8 }}>●●●</span>
                                     ) : (
-                                        <span style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{msg.text}</span>
+                                        <>
+                                            <span style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{msg.text}</span>
+                                            {msg.imageUrl && (
+                                                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                    <img 
+                                                        src={msg.imageUrl} 
+                                                        alt={msg.dishName || "Generated recipe image"} 
+                                                        style={{ width: '100%', maxWidth: '350px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
+                                                    />
+                                                    {msg.dishName && <span style={{ fontSize: '0.85rem', marginTop: '6px', opacity: 0.8 }}>{msg.dishName}</span>}
+                                                </div>
+                                            )}
+                                        </>
                                     )}
                                     
                                     {/* Action buttons on hover for user messages */}
