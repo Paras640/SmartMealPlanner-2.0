@@ -15,7 +15,7 @@ export default function ChatPage() {
     const [isSending, setIsSending] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState("");
-    const [selectedModel, setSelectedModel] = useState("llama-3.3-70b-versatile"); // Default Groq model
+    const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b"); // Default Groq model
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -160,10 +160,9 @@ export default function ChatPage() {
                         style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', cursor: 'pointer', outline: 'none' }}
                         title="Select an AI Model"
                     >
-                        <option value="llama-3.3-70b-versatile">LLaMA 3.3 70B (Powerful & Versatile)</option>
-                        <option value="llama-3.1-8b-instant">LLaMA 3.1 8B (Instant & Fast)</option>
-                        <option value="mixtral-8x7b-32768">Mixtral 8x7B (Smart & Balanced)</option>
-                        <option value="gemma2-9b-it">Gemma 2 9B (Lightweight)</option>
+                        <option value="openai/gpt-oss-120b">GPT-OSS 120B (Powerful & Detailed)</option>
+                        <option value="openai/gpt-oss-20b">GPT-OSS 20B (Fast & Balanced)</option>
+                        <option value="qwen/qwen3.8-27b">Qwen 3.8 27B (Lightweight)</option>
                     </select>
                 </div>
             </div>

@@ -58,7 +58,7 @@ function fallbackResponse(message) {
 }
 
 // ── Chat Response Generator ────────────────────────────────────────────────────
-async function generateChatResponse(userMessage, history = [], modelId = "llama-3.3-70b-versatile") {
+async function generateChatResponse(userMessage, history = [], modelId = "openai/gpt-oss-120b") {
   const groq = getGroq();
   if (!groq) {
     return {
@@ -67,10 +67,10 @@ async function generateChatResponse(userMessage, history = [], modelId = "llama-
     };
   }
 
-  // Handle decommissioned models fallback
-  let activeModel = modelId || "llama-3.3-70b-versatile";
-  if (activeModel === "llama-3.1-70b-versatile") {
-    activeModel = "llama-3.3-70b-versatile";
+  // Handle decommissioned models fallback to an available model
+  let activeModel = modelId || "openai/gpt-oss-120b";
+  if (!["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"].includes(activeModel)) {
+    activeModel = "openai/gpt-oss-120b";
   }
 
   try {
