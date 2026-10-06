@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { initDb } from "@/lib/models";
 
 // ── System Prompt ──────────────────────────────────────────────────────────────
@@ -19,12 +19,6 @@ Your capabilities:
 - Help with dietary restrictions (vegan, keto, diabetic-friendly, gluten-free, etc.)
 - Calculate portion sizes and macros
 
-IMPORTANT — Recipe Image Generation:
-- Whenever you suggest or describe a specific dish/recipe, ALWAYS end your message with this exact tag on its own line:
-  [GENERATE_IMAGE: <dish name>]
-- Example: [GENERATE_IMAGE: Creamy Garlic Butter Chicken]
-- Only include this tag when talking about a specific dish, not for general nutrition advice.
-
 Rules:
 - ALWAYS stay on topic: food, nutrition, cooking, meal planning
 - If asked something unrelated, gently redirect: "I'm best at food topics! 🍽️ Can I help with a recipe or meal plan?"
@@ -32,39 +26,15 @@ Rules:
 - Keep responses concise but complete (2–5 paragraphs max)
 - Never make up dangerous nutrition advice — recommend consulting a doctor for medical dietary needs`;
 
-// ── Gemini Client ──────────────────────────────────────────────────────────────
-let _genAI = null;
+// ── OpenAI Client ──────────────────────────────────────────────────────────────
+let _openai = null;
 
-function getGenAI() {
-  if (_genAI) return _genAI;
-  const apiKey = process.env.GEMINI_API_KEY;
+function getOpenAI() {
+  if (_openai) return _openai;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
-  _genAI = new GoogleGenerativeAI(apiKey);
-  return _genAI;
-}
-
-// ── Image Generation ───────────────────────────────────────────────────────────
-async function generateDishImage(dishName) {
-  try {
-    const genAI = getGenAI();
-    if (!genAI) return null;
-
-    // Use gemini-3.1-flash-image for food image generation
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-image" });
-    const result = await model.generateContent(
-      `Generate a professional food photography image of: ${dishName}. Beautiful plating, soft natural lighting, restaurant quality, appetizing, high resolution.`
-    );
-    
-    const parts = result?.response?.candidates?.[0]?.content?.parts;
-    const imagePart = parts?.find(p => p.inlineData);
-    if (imagePart?.inlineData) {
-      return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
-    }
-    return null;
-  } catch (err) {
-    console.error("[Image Gen] Error:", err.message);
-    return null;
-  }
+  _openai = new OpenAI({ apiKey });
+  return _openai;
 }
 
 // ── Fallback (Offline/Overloaded Mode) ──────────────────────────────────────────
@@ -88,55 +58,38 @@ function fallbackResponse(message) {
 }
 
 // ── Chat Response Generator ────────────────────────────────────────────────────
-async function generateChatResponse(userMessage, history = [], modelId = "gemini-2.5-flash") {
-  const genAI = getGenAI();
-  if (!genAI) {
+async function generateChatResponse(userMessage, history = [], modelId = "gpt-4o-mini") {
+  const openai = getOpenAI();
+  if (!openai) {
     return {
-      text: "⚠️ AI is not configured. Please add `GEMINI_API_KEY` to `.env.local`.",
+      text: "⚠️ AI is not configured. Please add `OPENAI_API_KEY` to `.env.local`.",
       imageUrl: null,
     };
   }
 
   try {
-    const model = genAI.getGenerativeModel({
-      model: modelId,
-      systemInstruction: SYSTEM_PROMPT,
-    });
-
     // Build conversation history for multi-turn chat
-    const chatHistory = history.slice(-10).map((m) => ({
-      role: m.role === "bot" ? "model" : "user",
-      parts: [{ text: m.text }],
-    }));
+    const messages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...history.slice(-10).map((m) => ({
+        role: m.role === "bot" ? "assistant" : "user",
+        content: m.text,
+      })),
+      { role: "user", content: userMessage }
+    ];
 
-    const chat = model.startChat({
-      history: chatHistory,
-      generationConfig: {
-        temperature: 0.85,
-        maxOutputTokens: 800,
-      },
+    const completion = await openai.chat.completions.create({
+      model: modelId,
+      messages: messages,
+      temperature: 0.85,
+      max_tokens: 800,
     });
 
-    const result = await chat.sendMessage(userMessage);
-    let responseText = result.response.text();
+    const responseText = completion.choices[0]?.message?.content || "";
 
-    // Extract image generation tag if present
-    const imageTagMatch = responseText.match(/\[GENERATE_IMAGE:\s*(.+?)\]/);
-    let imageUrl = null;
-    let dishName = null;
-
-    if (imageTagMatch) {
-      dishName = imageTagMatch[1].trim();
-      // Remove the tag from the displayed text
-      responseText = responseText.replace(imageTagMatch[0], "").trim();
-      // Generate the image in parallel (non-blocking display)
-      imageUrl = await generateDishImage(dishName);
-    }
-
-    return { text: responseText, imageUrl, dishName };
+    return { text: responseText, imageUrl: null, dishName: null };
   } catch (err) {
-    console.error("[Chat API] Gemini error:", err.message);
-    
+    console.error("[Chat API] OpenAI error:", err.message);
     // Fallback mode for exhibition if API is overloaded
     return fallbackResponse(userMessage);
   }

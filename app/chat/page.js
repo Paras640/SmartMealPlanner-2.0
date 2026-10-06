@@ -15,7 +15,7 @@ export default function ChatPage() {
     const [isSending, setIsSending] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState("");
-    const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash"); // Default stable model
+    const [selectedModel, setSelectedModel] = useState("gpt-4o-mini"); // Default fast OpenAI model
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -160,10 +160,9 @@ export default function ChatPage() {
                         style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', cursor: 'pointer', outline: 'none' }}
                         title="Select an AI Model"
                     >
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Stable)</option>
-                        <option value="gemini-3.5-flash">Gemini 3.5 Flash (Fast)</option>
-                        <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Lightweight)</option>
-                        <option value="gemini-3.8-flash">Gemini 3.8 Flash (Latest, may have queues)</option>
+                        <option value="gpt-4o-mini">GPT-4o Mini (Fast & Efficient)</option>
+                        <option value="gpt-4o">GPT-4o (Powerful & Smart)</option>
+                        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Legacy)</option>
                     </select>
                 </div>
             </div>
