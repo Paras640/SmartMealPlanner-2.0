@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 import { initDb } from "@/lib/models";
 
 // ── System Prompt ──────────────────────────────────────────────────────────────
@@ -26,15 +26,15 @@ Rules:
 - Keep responses concise but complete (2–5 paragraphs max)
 - Never make up dangerous nutrition advice — recommend consulting a doctor for medical dietary needs`;
 
-// ── OpenAI Client ──────────────────────────────────────────────────────────────
-let _openai = null;
+// ── Groq Client ──────────────────────────────────────────────────────────────
+let _groq = null;
 
-function getOpenAI() {
-  if (_openai) return _openai;
-  const apiKey = process.env.OPENAI_API_KEY;
+function getGroq() {
+  if (_groq) return _groq;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return null;
-  _openai = new OpenAI({ apiKey });
-  return _openai;
+  _groq = new Groq({ apiKey });
+  return _groq;
 }
 
 // ── Fallback (Offline/Overloaded Mode) ──────────────────────────────────────────
@@ -58,11 +58,11 @@ function fallbackResponse(message) {
 }
 
 // ── Chat Response Generator ────────────────────────────────────────────────────
-async function generateChatResponse(userMessage, history = [], modelId = "gpt-4o-mini") {
-  const openai = getOpenAI();
-  if (!openai) {
+async function generateChatResponse(userMessage, history = [], modelId = "llama-3.1-70b-versatile") {
+  const groq = getGroq();
+  if (!groq) {
     return {
-      text: "⚠️ AI is not configured. Please add `OPENAI_API_KEY` to `.env.local`.",
+      text: "⚠️ AI is not configured. Please add `GROQ_API_KEY` to `.env.local`.",
       imageUrl: null,
     };
   }
@@ -78,7 +78,7 @@ async function generateChatResponse(userMessage, history = [], modelId = "gpt-4o
       { role: "user", content: userMessage }
     ];
 
-    const completion = await openai.chat.completions.create({
+    const completion = await groq.chat.completions.create({
       model: modelId,
       messages: messages,
       temperature: 0.85,
@@ -89,7 +89,7 @@ async function generateChatResponse(userMessage, history = [], modelId = "gpt-4o
 
     return { text: responseText, imageUrl: null, dishName: null };
   } catch (err) {
-    console.error("[Chat API] OpenAI error:", err.message);
+    console.error("[Chat API] Groq error:", err.message);
     // Fallback mode for exhibition if API is overloaded
     return fallbackResponse(userMessage);
   }
