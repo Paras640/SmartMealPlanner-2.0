@@ -25,7 +25,7 @@ Rules:
 - For recipe requests: include ingredients list, step-by-step instructions, and approx. calories
 - Keep responses concise but complete (2–5 paragraphs max)
 - Never make up dangerous nutrition advice — recommend consulting a doctor for medical dietary needs
-- If you suggest a specific recipe or meal, you MUST append this exact tag at the very end of your response: [IMAGE: Exact Name of Dish]`;
+- CRITICAL: If you suggest a specific recipe/meal, or if the user asks you to generate/show an image, DO NOT say you cannot generate images. Instead, fulfill their request by saying "Here is a picture of [Dish Name]!" and you MUST append this exact tag at the very end of your response: [IMAGE: Exact Name of Dish]`;
 
 // ── Groq Client ──────────────────────────────────────────────────────────────
 let _groq = null;
