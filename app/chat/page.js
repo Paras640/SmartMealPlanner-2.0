@@ -15,6 +15,7 @@ export default function ChatPage() {
     const [isSending, setIsSending] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState("");
+    const [selectedModel, setSelectedModel] = useState("gemini-2.5-flash"); // Default stable model
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
 
@@ -74,7 +75,8 @@ export default function ChatPage() {
                 body: JSON.stringify({
                     message: userMessage,
                     userId: user.email || user.uid,
-                    firebaseUID: user.uid
+                    firebaseUID: user.uid,
+                    modelId: selectedModel
                 })
             });
             
@@ -146,9 +148,24 @@ export default function ChatPage() {
 
     return (
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Bot size={28} color="var(--primary-color)" />
-                <h1 style={{ fontSize: '1.5rem', margin: 0 }}>NutriBot Assistant</h1>
+            <div style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Bot size={28} color="var(--primary-color)" />
+                    <h1 style={{ fontSize: '1.5rem', margin: 0 }}>NutriBot Assistant</h1>
+                </div>
+                <div>
+                    <select 
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', cursor: 'pointer', outline: 'none' }}
+                        title="Select an AI Model"
+                    >
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (Stable)</option>
+                        <option value="gemini-3.5-flash">Gemini 3.5 Flash (Fast)</option>
+                        <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash Lite (Lightweight)</option>
+                        <option value="gemini-3.8-flash">Gemini 3.8 Flash (Latest, may have queues)</option>
+                    </select>
+                </div>
             </div>
             
             <div style={{ flex: 1, overflowY: 'auto', padding: '20px', background: 'var(--bg-main)', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>

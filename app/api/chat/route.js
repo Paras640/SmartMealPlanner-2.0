@@ -68,7 +68,7 @@ async function generateDishImage(dishName) {
 }
 
 // ── Chat Response Generator ────────────────────────────────────────────────────
-async function generateChatResponse(userMessage, history = []) {
+async function generateChatResponse(userMessage, history = [], modelId = "gemini-2.5-flash") {
   const genAI = getGenAI();
   if (!genAI) {
     return {
@@ -79,7 +79,7 @@ async function generateChatResponse(userMessage, history = []) {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: modelId,
       systemInstruction: SYSTEM_PROMPT,
     });
 
@@ -126,7 +126,7 @@ async function generateChatResponse(userMessage, history = []) {
 // ── POST: Send a message ───────────────────────────────────────────────────────
 export async function POST(request) {
   try {
-    const { message, userId, firebaseUID } = await request.json();
+    const { message, userId, firebaseUID, modelId } = await request.json();
     if (!message?.trim()) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 });
     }
@@ -146,7 +146,7 @@ export async function POST(request) {
       console.warn("[Chat] DB unavailable:", dbErr.message);
     }
 
-    const { text: replyText, imageUrl, dishName } = await generateChatResponse(message, history);
+    const { text: replyText, imageUrl, dishName } = await generateChatResponse(message, history, modelId);
 
     // Save conversation to DB
     if (db && (userId || firebaseUID)) {
