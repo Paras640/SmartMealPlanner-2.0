@@ -67,6 +67,38 @@ export default function DashboardPage() {
         }
     };
 
+    const [inviteCode, setInviteCode] = useState('');
+    const [inviteEmail, setInviteEmail] = useState('');
+
+    const handleJoinFamily = async (e) => {
+        e.preventDefault();
+        if (!inviteCode.trim()) return;
+        try {
+            const res = await fetch('/api/family', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'join', inviteValue: inviteCode.trim(), firebaseUID: user.uid, email: user.email, name: profile.name || user.displayName })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success('Joined group successfully!');
+                setInviteCode('');
+            } else {
+                toast.error(data.error || 'Failed to join group.');
+            }
+        } catch (err) {
+            toast.error('Failed to join family.');
+        }
+    };
+
+    const handleInviteMember = (e) => {
+        e.preventDefault();
+        if (!inviteEmail.trim()) return;
+        // In a real app, this would send an email. For the exhibition, we show a success toast.
+        toast.success(`Invitation sent to ${inviteEmail}!`);
+        setInviteEmail('');
+    };
+
     if (loading) return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
             Loading Dashboard...
@@ -114,6 +146,45 @@ export default function DashboardPage() {
                         ))}
                     </div>
                 )}
+            </section>
+
+            <section style={{ marginTop: '40px' }}>
+                <h2 style={{ fontSize: '1.8rem', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '10px' }}>
+                    Family Sync
+                </h2>
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: '1', minWidth: '300px', padding: '20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
+                        <h3 style={{ marginBottom: '15px' }}>Add a Family Member</h3>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '15px', fontSize: '0.9rem' }}>Invite a family member to your group.</p>
+                        <form onSubmit={handleInviteMember} style={{ display: 'flex', gap: '10px' }}>
+                            <input 
+                                type="email" 
+                                placeholder="Email address" 
+                                required 
+                                value={inviteEmail}
+                                onChange={(e) => setInviteEmail(e.target.value)}
+                                style={{ flex: '1', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)' }} 
+                            />
+                            <button type="submit" style={{ padding: '10px 20px', background: 'var(--primary-color)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Invite</button>
+                        </form>
+                    </div>
+
+                    <div style={{ flex: '1', minWidth: '300px', padding: '20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
+                        <h3 style={{ marginBottom: '15px' }}>Join a Group</h3>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '15px', fontSize: '0.9rem' }}>Enter a family code to join an existing group.</p>
+                        <form onSubmit={handleJoinFamily} style={{ display: 'flex', gap: '10px' }}>
+                            <input 
+                                type="text" 
+                                placeholder="Family Code" 
+                                required 
+                                value={inviteCode}
+                                onChange={(e) => setInviteCode(e.target.value)}
+                                style={{ flex: '1', padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)' }} 
+                            />
+                            <button type="submit" style={{ padding: '10px 20px', background: 'var(--primary-color)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Join</button>
+                        </form>
+                    </div>
+                </div>
             </section>
         </div>
     );

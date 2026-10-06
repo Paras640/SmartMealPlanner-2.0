@@ -73,12 +73,13 @@ const Header = () => {
             </Link>
 
             <nav className="nav-links">
-                {navLinks.map((link) => (
+                {navLinks.filter(l => l.label !== 'About').map((link) => (
                     <Link key={link.href} href={link.href} className={`nav-link ${isActive(link.href)}`}>
                         {link.label}
                     </Link>
                 ))}
-                {user && <Link href="/dashboard" className={`nav-link ${isActive('/dashboard')}`}>Dashboard</Link>}
+                {user && <Link href="/dashboard" className={`nav-link ${isActive('/dashboard')}`}>Family Sync</Link>}
+                <Link href="/about" className={`nav-link ${isActive('/about')}`}>About</Link>
             </nav>
 
             <button
@@ -91,19 +92,23 @@ const Header = () => {
 
             {mobileMenuOpen && (
                 <div className="mobile-nav-panel">
-                    {navLinks.map((link) => (
+                    {navLinks.filter(l => l.label !== 'About').map((link) => (
                         <Link key={link.href} href={link.href} className={`mobile-nav-link ${isActive(link.href)}`} onClick={() => setMobileMenuOpen(false)}>
                             {link.label}
                         </Link>
                     ))}
                     {user ? (
                         <>
-                            <Link href="/dashboard" className={`mobile-nav-link ${isActive('/dashboard')}`} onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+                            <Link href="/dashboard" className={`mobile-nav-link ${isActive('/dashboard')}`} onClick={() => setMobileMenuOpen(false)}>Family Sync</Link>
+                            <Link href="/about" className={`mobile-nav-link ${isActive('/about')}`} onClick={() => setMobileMenuOpen(false)}>About</Link>
                             <Link href="/settings" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Settings</Link>
                             <button className="mobile-nav-link mobile-nav-logout" onClick={handleLogout}>Log Out</button>
                         </>
                     ) : (
-                        <Link href="/login" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
+                        <>
+                            <Link href="/about" className={`mobile-nav-link ${isActive('/about')}`} onClick={() => setMobileMenuOpen(false)}>About</Link>
+                            <Link href="/login" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
+                        </>
                     )}
                 </div>
             )}
@@ -132,7 +137,7 @@ const Header = () => {
                                     <strong style={{ display: 'block', fontSize: '0.95rem' }}>{user.displayName || 'User'}</strong>
                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{user.email}</span>
                                 </div>
-                                <Link href="/dashboard" className="lang-option" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>🏠 Dashboard</Link>
+                                <Link href="/dashboard" className="lang-option" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>🏠 Family Sync</Link>
                                 <Link href="/settings" className="lang-option" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>⚙️ Settings</Link>
                                 <div
                                     className="lang-option"
