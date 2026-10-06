@@ -92,6 +92,9 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
         setInput("");
         setIsSending(true);
 
+        // Show typing indicator
+        setMessages(prev => [...prev, { text: "...", isBot: true, isTyping: true }]);
+
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
@@ -99,17 +102,29 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                 body: JSON.stringify({
                     message: userMessage,
                     userId: user?.email || user?.firebaseUID,
-                    firebaseUID: user?.firebaseUID
+                    firebaseUID: user?.uid
                 })
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.text || data.error || "Chat request failed");
+            if (!response.ok) throw new Error(data.error || "Chat request failed");
 
-            setMessages(prev => [...prev, { text: data.text || "I could not generate a reply right now.", isBot: true }]);
+            // Remove typing indicator and add real response
+            setMessages(prev => {
+                const without = prev.filter(m => !m.isTyping);
+                return [...without, {
+                    text: data.text || "I could not generate a reply right now.",
+                    isBot: true,
+                    imageUrl: data.imageUrl || null,
+                    dishName: data.dishName || null,
+                }];
+            });
         } catch (error) {
             console.error("Chat Error:", error);
+            setMessages(prev => {
+                const without = prev.filter(m => !m.isTyping);
+                return [...without, { text: "Connection error. Please try again.", isBot: true }];
+            });
             toast.error("NutriBot could not reach the backend");
-            setMessages(prev => [...prev, { text: "Connection error. Please ensure the backend is running.", isBot: true }]);
         } finally {
             setIsSending(false);
         }
@@ -175,7 +190,25 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                     <div className="chatbot-messages">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`message ${msg.isBot ? "bot-message" : "user-message"}`}>
-                                {msg.text}
+                                {msg.isTyping ? (
+                                    <span style={{ letterSpacing: '2px', opacity: 0.6 }}>●●●</span>
+                                ) : (
+                                    <>
+                                        <span style={{ whiteSpace: 'pre-wrap' }}>{msg.text}</span>
+                                        {msg.imageUrl && (
+                                            <div style={{ marginTop: '10px' }}>
+                                                <img
+                                                    src={msg.imageUrl}
+                                                    alt={msg.dishName || 'Recipe'}
+                                                    style={{ width: '100%', borderRadius: '10px', display: 'block', boxShadow: '0 2px 12px rgba(0,0,0,0.15)' }}
+                                                />
+                                                {msg.dishName && (
+                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', textAlign: 'center' }}>🍽️ {msg.dishName}</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         ))}
                     </div>
