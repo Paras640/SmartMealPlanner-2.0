@@ -49,17 +49,16 @@ async function generateDishImage(dishName) {
     const genAI = getGenAI();
     if (!genAI) return null;
 
-    // Use Imagen 3 for high-quality food images
-    const model = genAI.getGenerativeModel({ model: "imagen-3.0-generate-002" });
-    const result = await model.generateImages({
-      prompt: `Professional food photography of ${dishName}, beautifully plated, soft natural lighting, restaurant quality, appetizing, high resolution`,
-      number_of_images: 1,
-      aspect_ratio: "16:9",
-    });
-
-    const imageData = result?.generatedImages?.[0]?.image?.imageBytes;
-    if (imageData) {
-      return `data:image/png;base64,${imageData}`;
+    // Use gemini-3.1-flash-image for food image generation
+    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-image" });
+    const result = await model.generateContent(
+      `Generate a professional food photography image of: ${dishName}. Beautiful plating, soft natural lighting, restaurant quality, appetizing, high resolution.`
+    );
+    
+    const parts = result?.response?.candidates?.[0]?.content?.parts;
+    const imagePart = parts?.find(p => p.inlineData);
+    if (imagePart?.inlineData) {
+      return `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
     }
     return null;
   } catch (err) {
@@ -80,7 +79,7 @@ async function generateChatResponse(userMessage, history = []) {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       systemInstruction: SYSTEM_PROMPT,
     });
 
