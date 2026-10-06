@@ -38,30 +38,17 @@ function getGroq() {
   return _groq;
 }
 
-// ── Hugging Face Image Generation ─────────────────────────────────────────────
-async function generateHuggingFaceImage(prompt) {
-  const hfKey = process.env.HUGGINGFACE_API_KEY;
-  if (!hfKey) return null;
+// ── Pollinations.ai Image Generation (free, no API key needed) ────────────────
+async function generateImage(dishName) {
   try {
-    const response = await fetch("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0", {
-      headers: { 
-        Authorization: `Bearer ${hfKey}`, 
-        "Content-Type": "application/json" 
-      },
-      method: "POST",
-      body: JSON.stringify({ 
-        inputs: "professional food photography of " + prompt + ", highly detailed, 4k, delicious, appetizing, cinematic lighting, restaurant quality" 
-      }),
-    });
-    if (!response.ok) {
-      console.warn("[HF API Error]:", response.status, response.statusText);
-      return null;
-    }
-    const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
-    return `data:image/jpeg;base64,${base64}`;
+    const prompt = encodeURIComponent(
+      "professional food photography of " + dishName + ", highly detailed, 4k, delicious, appetizing, cinematic lighting, restaurant quality, no text"
+    );
+    const seed = Math.floor(Math.random() * 1000000);
+    // Pollinations.ai generates images on-demand via URL - just return the URL directly
+    return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
   } catch (err) {
-    console.error("[HF Image Gen Error]", err.message);
+    console.error("[Image Gen Error]", err.message);
     return null;
   }
 }
@@ -164,15 +151,17 @@ export async function POST(request) {
 
     const { text: replyText, dishName } = await generateChatResponse(message, history, modelId);
 
-    // Save conversation to DB immediately — image will be patched in after generation
-    let savedMessageId = null;
+    // Generate image URL immediately (Pollinations is instant URL construction)
+    const imageUrl = dishName ? await generateImage(dishName) : null;
+
+    // Save conversation to DB
     if (db && (userId || firebaseUID)) {
       try {
         const messagesToSave = [
           { role: "user", text: message, timestamp: new Date() },
-          { role: "bot", text: replyText, dishName, imageUrl: null, imageGenerating: !!dishName, timestamp: new Date() },
+          { role: "bot", text: replyText, dishName, imageUrl, timestamp: new Date() },
         ];
-        const updated = await db.ChatSession.findOneAndUpdate(
+        await db.ChatSession.findOneAndUpdate(
           { $or: [{ userId }, { firebaseUID }] },
           {
             $set: { userId, firebaseUID, updatedAt: new Date() },
@@ -180,31 +169,12 @@ export async function POST(request) {
           },
           { upsert: true, returnDocument: 'after' }
         );
-        // Get the ID of the saved bot message
-        const msgs = updated?.messages || [];
-        savedMessageId = msgs[msgs.length - 1]?._id?.toString();
       } catch (saveErr) {
         console.warn("[Chat] Failed to save:", saveErr.message);
       }
     }
 
-    // If a dish was identified, kick off image generation in background
-    if (dishName && savedMessageId && db) {
-      generateHuggingFaceImage(dishName).then(async (imageUrl) => {
-        if (!imageUrl) return;
-        try {
-          await db.ChatSession.updateOne(
-            { $or: [{ userId }, { firebaseUID: userId }], "messages._id": savedMessageId },
-            { $set: { "messages.$.imageUrl": imageUrl, "messages.$.imageGenerating": false } }
-          );
-          console.log("[HF] Image saved to DB for message:", savedMessageId);
-        } catch (e) {
-          console.warn("[HF] Failed to update image in DB:", e.message);
-        }
-      }).catch(e => console.error("[HF] Background image gen failed:", e.message));
-    }
-
-    return NextResponse.json({ text: replyText, dishName, imageGenerating: !!dishName, messageId: savedMessageId });
+    return NextResponse.json({ text: replyText, dishName, imageUrl });
   } catch (err) {
     console.error("[Chat API] Error:", err.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
