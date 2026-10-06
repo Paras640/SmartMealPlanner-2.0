@@ -128,12 +128,12 @@ async function generateChatResponse(userMessage, history = [], modelId = "openai
   }
 
   try {
-    // Build conversation history for multi-turn chat
+    // Build conversation history — strip any [IMAGE:] tags from history so the AI doesn't get confused
     const messages = [
       { role: "system", content: SYSTEM_PROMPT },
       ...history.slice(-10).map((m) => ({
         role: m.role === "bot" ? "assistant" : "user",
-        content: m.text,
+        content: (m.text || "").replace(/\[IMAGE:\s*.+?\]/gi, "").trim(),
       })),
       { role: "user", content: userMessage }
     ];
@@ -148,17 +148,40 @@ async function generateChatResponse(userMessage, history = [], modelId = "openai
     let responseText = completion.choices[0]?.message?.content || "";
     let dishName = null;
 
-    // Check for image tag — extract dish name but do NOT wait for generation here
+    // Method 1: Check for explicit [IMAGE:] tag from the AI
     const imageMatch = responseText.match(/\[IMAGE:\s*(.+?)\]/i);
     if (imageMatch) {
       dishName = imageMatch[1].trim();
       responseText = responseText.replace(imageMatch[0], "").trim();
     }
 
-    return { text: responseText, imageUrl: null, dishName };
+    // Method 2: If no tag found, do a quick separate call to extract dish name
+    if (!dishName && responseText.length > 100) {
+      try {
+        const extractCompletion = await groq.chat.completions.create({
+          model: "openai/gpt-oss-20b", // Use fast model for extraction
+          messages: [
+            {
+              role: "system",
+              content: "You extract dish names. Given a food/recipe response, reply with ONLY the main dish name (1-4 words). If the response does not contain a specific recipe or dish, reply with exactly: NONE"
+            },
+            { role: "user", content: responseText.substring(0, 500) }
+          ],
+          temperature: 0,
+          max_tokens: 20,
+        });
+        const extracted = extractCompletion.choices[0]?.message?.content?.trim();
+        if (extracted && extracted !== "NONE" && extracted.length < 50) {
+          dishName = extracted;
+        }
+      } catch (extractErr) {
+        console.warn("[Chat] Dish extraction failed:", extractErr.message);
+      }
+    }
+
+    return { text: responseText, dishName };
   } catch (err) {
     console.error("[Chat API] Groq error:", err.message);
-    // Fallback mode for exhibition if API is overloaded
     return fallbackResponse(userMessage);
   }
 }
@@ -191,6 +214,7 @@ export async function POST(request) {
     // Generate image with timeout — never blocks response for more than 15s
     let imageUrl = null;
     if (dishName) {
+      console.log("[Image] Generating for dish:", dishName);
       imageUrl = await generateImage(dishName);
     }
 
