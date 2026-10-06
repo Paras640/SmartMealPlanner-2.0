@@ -13,6 +13,8 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const [recipes, setRecipes] = useState([]);
     const [loadingRecipes, setLoadingRecipes] = useState(false);
+    const [familyInfo, setFamilyInfo] = useState(null);
+    const [invites, setInvites] = useState([]);
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -34,6 +36,19 @@ export default function DashboardPage() {
                     fetchPersonalizedRecipes(data.dietaryType);
                 } else {
                     router.push('/onboarding');
+                }
+                
+                try {
+                    const famRes = await fetch(`/api/family?uid=${firebaseUser.uid}`);
+                    if (famRes.ok) setFamilyInfo(await famRes.json());
+                    
+                    const invRes = await fetch(`/api/invites?email=${firebaseUser.email}`);
+                    if (invRes.ok) {
+                        const invData = await invRes.json();
+                        setInvites(invData.invites || []);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch family or invites", err);
                 }
             } catch (err) {
                 console.error("Failed to fetch profile", err);
@@ -91,12 +106,66 @@ export default function DashboardPage() {
         }
     };
 
-    const handleInviteMember = (e) => {
+    const handleInviteMember = async (e) => {
         e.preventDefault();
         if (!inviteEmail.trim()) return;
-        // In a real app, this would send an email. For the exhibition, we show a success toast.
-        toast.success(`Invitation sent to ${inviteEmail}!`);
-        setInviteEmail('');
+        if (!familyInfo?.familyCode) {
+            toast.error("You must create or join a family first in Settings before inviting others.");
+            return;
+        }
+        
+        try {
+            const res = await fetch('/api/invites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    familyCode: familyInfo.familyCode,
+                    senderUid: user.uid,
+                    senderName: profile.name || user.displayName,
+                    targetEmail: inviteEmail.trim()
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                toast.success(`Invitation sent to ${inviteEmail}!`);
+                setInviteEmail('');
+            } else {
+                toast.error(data.error || 'Failed to send invite.');
+            }
+        } catch (err) {
+            toast.error('Failed to send invite.');
+        }
+    };
+
+    const handleRespondToInvite = async (inviteId, familyCode, accept) => {
+        try {
+            await fetch('/api/invites', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inviteId, status: accept ? 'accepted' : 'rejected' })
+            });
+
+            setInvites(prev => prev.filter(inv => inv._id !== inviteId));
+
+            if (accept) {
+                const res = await fetch('/api/family', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'join', inviteValue: familyCode, firebaseUID: user.uid, email: user.email, name: profile.name || user.displayName })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    toast.success('Joined family group successfully!');
+                    setFamilyInfo(data.family);
+                } else {
+                    toast.error(data.error || 'Failed to join group.');
+                }
+            } else {
+                toast.success('Invitation rejected.');
+            }
+        } catch (err) {
+            toast.error('Failed to process invitation.');
+        }
     };
 
     if (loading) return (
@@ -152,6 +221,22 @@ export default function DashboardPage() {
                 <h2 style={{ fontSize: '1.8rem', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '10px' }}>
                     Family Sync
                 </h2>
+
+                {invites.length > 0 && (
+                    <div style={{ marginBottom: '20px', padding: '15px', background: 'var(--bg-card)', borderRadius: '12px', border: '2px solid var(--primary-color)' }}>
+                        <h3 style={{ marginBottom: '10px', color: 'var(--primary-color)' }}>Pending Invitations</h3>
+                        {invites.map(inv => (
+                            <div key={inv._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '12px', borderRadius: '8px', marginBottom: '8px', border: '1px solid var(--border)' }}>
+                                <span><strong>{inv.senderName}</strong> invited you to their family group.</span>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button onClick={() => handleRespondToInvite(inv._id, inv.familyCode, true)} style={{ background: 'var(--primary-color)', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Accept</button>
+                                    <button onClick={() => handleRespondToInvite(inv._id, inv.familyCode, false)} style={{ background: '#ef4444', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Reject</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
                 <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                     <div style={{ flex: '1', minWidth: '300px', padding: '20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
                         <h3 style={{ marginBottom: '15px' }}>Add a Family Member</h3>
