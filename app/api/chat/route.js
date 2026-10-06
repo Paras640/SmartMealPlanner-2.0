@@ -67,6 +67,26 @@ async function generateDishImage(dishName) {
   }
 }
 
+// ── Fallback (Offline/Overloaded Mode) ──────────────────────────────────────────
+function fallbackResponse(message) {
+  const lower = message.toLowerCase();
+  let text = "I'm currently experiencing high server demand, but I'm still here to help! 🥗 ";
+
+  if (lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
+    text = "Hi there! 👋 I'm NutriBot. The AI servers are super busy right now, but I can still answer basic questions about recipes, meal plans, or nutrition facts!";
+  } else if (lower.includes("recipe") || lower.includes("cook") || lower.includes("make") || lower.includes("how")) {
+    text = "I'd love to help with a recipe! 🍳 Since the AI is heavily loaded right now, I recommend trying a classic like Grilled Lemon Herb Chicken. Let me know if you need basic instructions!";
+  } else if (lower.includes("calorie") || lower.includes("nutrition") || lower.includes("healthy") || lower.includes("diet")) {
+    text = "Great nutrition question! 🥗 For a balanced meal, aim for lean proteins, complex carbs, and plenty of vegetables. Keep it simple and colorful!";
+  } else if (lower.includes("vegan") || lower.includes("vegetarian") || lower.includes("keto")) {
+    text = "Dietary lifestyles are important! 🌱 While my brain is a bit overloaded today, the best advice for any diet is to focus on whole, unprocessed foods.";
+  } else {
+    text += "That's an interesting question! 🤔 While my advanced AI is taking a quick breather due to high demand, please check out the 'Recipes' tab for some great meal ideas.";
+  }
+
+  return { text, imageUrl: null, dishName: null };
+}
+
 // ── Chat Response Generator ────────────────────────────────────────────────────
 async function generateChatResponse(userMessage, history = [], modelId = "gemini-2.5-flash") {
   const genAI = getGenAI();
@@ -116,10 +136,9 @@ async function generateChatResponse(userMessage, history = [], modelId = "gemini
     return { text: responseText, imageUrl, dishName };
   } catch (err) {
     console.error("[Chat API] Gemini error:", err.message);
-    return {
-      text: "I'm having trouble connecting right now. Please try again in a moment! 🙏",
-      imageUrl: null,
-    };
+    
+    // Fallback mode for exhibition if API is overloaded
+    return fallbackResponse(userMessage);
   }
 }
 
@@ -166,10 +185,6 @@ export async function POST(request) {
       } catch (saveErr) {
         console.warn("[Chat] Failed to save:", saveErr.message);
       }
-    }
-
-    if (replyText.includes("⚠️ AI is not configured") || replyText.includes("I'm having trouble connecting right now")) {
-       return NextResponse.json({ error: "AI is currently overloaded due to high demand. Spikes in demand are temporary. Please try again." }, { status: 503 });
     }
 
     return NextResponse.json({ text: replyText, imageUrl, dishName });
