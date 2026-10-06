@@ -280,10 +280,17 @@ export async function DELETE(request) {
     const db = await initDb();
     if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
 
-    await db.ChatSession.updateOne(
-      { $or: [{ userId }, { firebaseUID: userId }] },
-      { $pull: { messages: { _id: messageId } } }
-    );
+    if (messageId === 'all') {
+      await db.ChatSession.updateOne(
+        { $or: [{ userId }, { firebaseUID: userId }] },
+        { $set: { messages: [] } }
+      );
+    } else {
+      await db.ChatSession.updateOne(
+        { $or: [{ userId }, { firebaseUID: userId }] },
+        { $pull: { messages: { _id: messageId } } }
+      );
+    }
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("[Chat DELETE]", err.message);

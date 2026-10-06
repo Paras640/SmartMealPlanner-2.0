@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect, useRef } from "react";
-import { Bot, Camera, Send, X } from "lucide-react";
+import { Bot, Camera, Send, X, StopCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import "@/styles/Chatbot.css";
 import { auth } from "@/lib/firebaseConfig";
@@ -10,12 +10,11 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
     const [user, setUser] = useState(null);
     const [aiEnabled, setAiEnabled] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
-    const [messages, setMessages] = useState([
-        { text: "Hi! I'm NutriBot. Your personal nutrition assistant. What can I help you cook or plan today?", isBot: true }
-    ]);
+    const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [isSending, setIsSending] = useState(false);
     const fileInputRef = useRef(null);
+    const abortControllerRef = useRef(null);
 
     useEffect(() => {
         const refreshAiPreference = async (firebaseUser) => {
@@ -95,10 +94,13 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
         // Show typing indicator
         setMessages(prev => [...prev, { text: "...", isBot: true, isTyping: true }]);
 
+        abortControllerRef.current = new AbortController();
+
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                signal: abortControllerRef.current.signal,
                 body: JSON.stringify({
                     message: userMessage,
                     userId: user?.email || user?.firebaseUID,
@@ -119,14 +121,43 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                 }];
             });
         } catch (error) {
-            console.error("Chat Error:", error);
-            setMessages(prev => {
-                const without = prev.filter(m => !m.isTyping);
-                return [...without, { text: "Connection error. Please try again.", isBot: true }];
-            });
-            toast.error("NutriBot could not reach the backend");
+            if (error.name === 'AbortError') {
+                toast.info("Response generation stopped.");
+                setMessages(prev => prev.filter(m => !m.isTyping));
+            } else {
+                console.error("Chat Error:", error);
+                setMessages(prev => {
+                    const without = prev.filter(m => !m.isTyping);
+                    return [...without, { text: "Connection error. Please try again.", isBot: true }];
+                });
+                toast.error("NutriBot could not reach the backend");
+            }
         } finally {
             setIsSending(false);
+            abortControllerRef.current = null;
+        }
+    };
+
+    const stopGeneration = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+    };
+
+    const handleClearChat = async () => {
+        if (!confirm("Clear this conversation?")) return;
+        try {
+            const uid = user?.email || user?.firebaseUID;
+            if (!uid) return;
+            const response = await fetch(`/api/chat?messageId=all&userId=${encodeURIComponent(uid)}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                setMessages([]);
+                toast.success("Conversation cleared.");
+            }
+        } catch (err) {
+            toast.error("Error clearing conversation.");
         }
     };
 
@@ -168,28 +199,68 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
 
     if (!aiEnabled) return null;
 
+    const userName = user?.displayName || user?.name || user?.email?.split('@')[0] || "there";
+
     return (
         <div className={`chatbot-container ${isDark ? "dark-mode" : ""}`}>
             <div
                 className={`fab-ai ${isOpen ? "active" : ""}`}
                 onClick={() => setIsOpen(!isOpen)}
                 title={isOpen ? "Close AI" : "Ask NutriBot"}
+                style={{
+                    boxShadow: '0 8px 30px rgba(109,186,95,0.4)',
+                    background: isOpen ? '#ef4444' : 'var(--primary-color)'
+                }}
             >
                 {isOpen ? <X size={24} /> : <Bot size={24} />}
             </div>
 
             {isOpen && (
-                <div className="chatbot-window animate-pop-in">
-                    <div className="chatbot-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <span>NutriBot</span>
-                            {!isPremium && <span style={{ fontSize: '0.7em', background: 'var(--accent)', color: 'white', padding: '2px 6px', borderRadius: '10px', marginLeft: '8px' }}>{trialDaysLeft} Days Trial</span>}
+                <div className="chatbot-window animate-pop-in" style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+                    borderRadius: '24px'
+                }}>
+                    <div className="chatbot-header" style={{ 
+                        background: 'rgba(255,255,255,0.2)', 
+                        borderBottom: '1px solid rgba(255,255,255,0.1)', 
+                        color: 'var(--text-main)', 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        backdropFilter: 'blur(10px)'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Bot size={20} color="var(--primary-color)" />
+                            <span style={{ fontWeight: 'bold' }}>NutriBot</span>
+                            {!isPremium && <span style={{ fontSize: '0.65em', background: 'var(--primary-color)', color: 'white', padding: '2px 8px', borderRadius: '12px' }}>{trialDaysLeft}d left</span>}
                         </div>
-                        <button className="close-btn" onClick={() => setIsOpen(false)}><X size={16} /></button>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            {user && <button onClick={handleClearChat} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }} title="Clear Chat"><Trash2 size={16} /></button>}
+                            <button className="close-btn" style={{ color: 'var(--text-main)' }} onClick={() => setIsOpen(false)}><X size={18} /></button>
+                        </div>
                     </div>
-                    <div className="chatbot-messages">
+                    <div className="chatbot-messages" style={{ background: 'transparent' }}>
+                        {messages.length === 0 && (
+                            <div style={{ textAlign: 'center', marginTop: '30px', animation: 'popIn 0.5s' }}>
+                                <Bot size={40} color="var(--primary-color)" style={{ margin: '0 auto', opacity: 0.8 }} />
+                                <h3 style={{ marginTop: '10px', color: 'var(--text-main)' }}>Hi {userName}!</h3>
+                                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>How can I help you eat better today?</p>
+                            </div>
+                        )}
                         {messages.map((msg, idx) => (
-                            <div key={idx} className={`message ${msg.isBot ? "bot-message" : "user-message"}`}>
+                            <div key={idx} className={`message ${msg.isBot ? "bot-message" : "user-message"}`} style={{
+                                background: msg.isBot ? 'rgba(255,255,255,0.6)' : 'linear-gradient(135deg, var(--primary-color), var(--primary-hover))',
+                                backdropFilter: msg.isBot ? 'blur(10px)' : 'none',
+                                border: msg.isBot ? '1px solid rgba(255,255,255,0.8)' : 'none',
+                                color: msg.isBot ? 'var(--text-main)' : 'white',
+                                borderRadius: msg.isBot ? '18px 18px 18px 4px' : '18px 18px 4px 18px',
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
+                                animation: 'popIn 0.3s'
+                            }}>
                                 {msg.isTyping ? (
                                     <span style={{ letterSpacing: '2px', opacity: 0.6 }}>●●●</span>
                                 ) : (
@@ -200,10 +271,11 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                                                 <img
                                                     src={msg.imageUrl}
                                                     alt={msg.dishName || 'Recipe'}
-                                                    style={{ width: '100%', borderRadius: '10px', display: 'block', boxShadow: '0 2px 12px rgba(0,0,0,0.15)' }}
+                                                    style={{ width: '100%', borderRadius: '12px', display: 'block', boxShadow: '0 2px 12px rgba(0,0,0,0.1)' }}
+                                                    onError={(e) => { e.target.style.display = 'none'; }}
                                                 />
                                                 {msg.dishName && (
-                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', textAlign: 'center' }}>🍽️ {msg.dishName}</p>
+                                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', textAlign: 'center', fontWeight: '500' }}>🍽️ {msg.dishName}</p>
                                                 )}
                                             </div>
                                         )}
@@ -212,9 +284,9 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                             </div>
                         ))}
                     </div>
-                    <div className="chatbot-input" style={{ display: 'flex', gap: '8px', padding: '10px' }}>
+                    <div className="chatbot-input" style={{ background: 'rgba(255,255,255,0.2)', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px', display: 'flex', gap: '8px' }}>
                         {!user ? (
-                            <div style={{ flex: 1, padding: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '15px' }}>
+                            <div style={{ flex: 1, padding: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', background: 'rgba(255,255,255,0.5)', borderRadius: '15px' }}>
                                 Please <span style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'login' }))}>Login</span> to chat with NutriBot.
                             </div>
                         ) : (
@@ -230,7 +302,7 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                                     className="vision-btn"
                                     onClick={() => fileInputRef.current?.click()}
                                     title="Upload a fridge photo"
-                                    style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '1.2rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                                    style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '12px', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                                 >
                                     <Camera size={18} />
                                 </button>
@@ -240,12 +312,18 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                                    style={{ flex: 1 }}
+                                    style={{ flex: 1, background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '12px', padding: '10px', color: 'var(--text-main)', outline: 'none' }}
                                     disabled={isSending}
                                 />
-                                <button className="send-btn" onClick={handleSend} disabled={isSending}>
-                                    <Send size={16} /> {isSending ? "Sending" : "Send"}
-                                </button>
+                                {isSending ? (
+                                    <button onClick={stopGeneration} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <StopCircle size={16} /> Stop
+                                    </button>
+                                ) : (
+                                    <button className="send-btn" onClick={handleSend} style={{ background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                        <Send size={16} /> Send
+                                    </button>
+                                )}
                             </>
                         )}
                     </div>

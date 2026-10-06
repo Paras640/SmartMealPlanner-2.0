@@ -3,9 +3,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import { Bot, Send, Trash2, Edit2, Check, X, Camera } from "lucide-react";
+import { Bot, Send, Trash2, Edit2, Check, X, Camera, StopCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import "@/styles/Chatbot.css"; // We can reuse styles if needed, or inline
+import "@/styles/Chatbot.css"; 
 
 export default function ChatPage() {
     const router = useRouter();
@@ -15,9 +15,10 @@ export default function ChatPage() {
     const [isSending, setIsSending] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState("");
-    const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b"); // Default Groq model
+    const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
+    const abortControllerRef = useRef(null);
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (firebaseUser) => {
@@ -59,7 +60,6 @@ export default function ChatPage() {
         const userMessage = input.trim();
         const tempId = Date.now().toString();
         
-        // Add optimistic user message and typing indicator
         setMessages(prev => [
             ...prev, 
             { _id: tempId, role: "user", text: userMessage },
@@ -68,10 +68,13 @@ export default function ChatPage() {
         setInput("");
         setIsSending(true);
 
+        abortControllerRef.current = new AbortController();
+
         try {
             const response = await fetch('/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                signal: abortControllerRef.current.signal,
                 body: JSON.stringify({
                     message: userMessage,
                     userId: user.email || user.uid,
@@ -81,19 +84,101 @@ export default function ChatPage() {
             });
             
             const data = await response.json();
-            
-            // Reload history to get messages with imageUrls from DB
             await loadHistory(user);
 
             if (!response.ok) {
-                toast.error(data.error || "High demand on AI servers right now. Please try again.");
+                toast.error(data.error || "High demand on AI servers right now.");
             }
         } catch (error) {
-            console.error("Chat Error:", error);
-            toast.error("Connection error to backend");
+            if (error.name === 'AbortError') {
+                toast.info("Response generation stopped.");
+                await loadHistory(user); // Reload without the typing indicator
+            } else {
+                console.error("Chat Error:", error);
+                toast.error("Connection error to backend");
+                setMessages(prev => prev.filter(m => m._id !== "typing"));
+            }
+        } finally {
+            setIsSending(false);
+            abortControllerRef.current = null;
+        }
+    };
+
+    const stopGeneration = () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+    };
+
+    const handleClearChat = async () => {
+        if (!confirm("Are you sure you want to clear the entire conversation history? This cannot be undone.")) return;
+        try {
+            const response = await fetch(`/api/chat?messageId=all&userId=${encodeURIComponent(user.email || user.uid)}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                setMessages([]);
+                toast.success("Conversation cleared.");
+            } else {
+                toast.error("Failed to clear conversation.");
+            }
+        } catch (err) {
+            toast.error("Error clearing conversation.");
+        }
+    };
+
+    const convertToBase64 = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    };
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setMessages(prev => [...prev, { _id: Date.now().toString(), role: "user", text: "📷 Uploaded an image for analysis" }]);
+        setMessages(prev => [...prev, { _id: "typing", role: "bot", text: "Analyzing image...", isTyping: true }]);
+        setIsSending(true);
+
+        try {
+            const base64 = await convertToBase64(file);
+            const response = await fetch('/api/ai-media/identify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ imageBase64: base64 })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
+                const ingredientList = ingredients.length > 0 ? ingredients.join(", ") : "items";
+                
+                // Immediately ask the chatbot to use these ingredients to suggest a recipe
+                const followUpPrompt = `I uploaded an image of my ingredients and you identified: ${ingredientList}. Please suggest a recipe I can make with these!`;
+                
+                setInput(followUpPrompt);
+                toast.success("Image analyzed! Sending to NutriBot...");
+                
+                // We fake-type the prompt and let the user send it, or send it automatically:
+                setTimeout(() => {
+                    document.getElementById('chat-send-btn')?.click();
+                }, 500);
+
+            } else {
+                toast.error("Image analysis failed");
+            }
+            setMessages(prev => prev.filter(m => m._id !== "typing"));
+        } catch (err) {
+            console.error("Vision Error:", err);
+            toast.error("Vision AI connection failed");
             setMessages(prev => prev.filter(m => m._id !== "typing"));
         } finally {
             setIsSending(false);
+            e.target.value = "";
         }
     };
 
@@ -146,31 +231,89 @@ export default function ChatPage() {
 
     if (!user) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
 
+    const userName = user.displayName || user.name || user.email?.split('@')[0] || "there";
+
     return (
-        <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px 12px 0 0', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Bot size={28} color="var(--primary-color)" />
-                    <h1 style={{ fontSize: '1.5rem', margin: 0 }}>NutriBot Assistant</h1>
+        <div style={{ 
+            maxWidth: '950px', 
+            margin: '0 auto', 
+            padding: '20px', 
+            height: 'calc(100vh - 80px)', 
+            display: 'flex', 
+            flexDirection: 'column',
+            fontFamily: 'var(--font-sans)',
+        }}>
+            {/* GLASSMORPHISM HEADER */}
+            <div style={{ 
+                padding: '16px 24px', 
+                background: 'rgba(255, 255, 255, 0.1)', 
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderRadius: '16px 16px 0 0', 
+                border: '1px solid rgba(255,255,255,0.2)', 
+                borderBottom: 'none',
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between', 
+                flexWrap: 'wrap', 
+                gap: '10px',
+                boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+                zIndex: 10
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ background: 'var(--primary-color)', padding: '8px', borderRadius: '12px', color: 'white', display: 'flex', boxShadow: '0 4px 10px rgba(109,186,95,0.3)' }}>
+                        <Bot size={24} />
+                    </div>
+                    <div>
+                        <h1 style={{ fontSize: '1.3rem', margin: 0, fontWeight: '700' }}>NutriBot</h1>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Always here to help you eat better</p>
+                    </div>
                 </div>
-                <div>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <select 
                         value={selectedModel}
                         onChange={(e) => setSelectedModel(e.target.value)}
-                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', cursor: 'pointer', outline: 'none' }}
+                        style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', cursor: 'pointer', outline: 'none', backdropFilter: 'blur(5px)' }}
                         title="Select an AI Model"
                     >
                         <option value="openai/gpt-oss-120b">GPT-OSS 120B (Powerful & Detailed)</option>
                         <option value="openai/gpt-oss-20b">GPT-OSS 20B (Fast & Balanced)</option>
                         <option value="qwen/qwen3.8-27b">Qwen 3.8 27B (Lightweight)</option>
                     </select>
+                    
+                    <button 
+                        onClick={handleClearChat}
+                        style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', padding: '8px 12px', borderRadius: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '500', transition: 'all 0.2s' }}
+                        title="Clear Conversation"
+                    >
+                        <Trash2 size={16} /> Clear
+                    </button>
                 </div>
             </div>
             
-            <div style={{ flex: 1, overflowY: 'auto', padding: '20px', background: 'var(--bg-main)', borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}>
+            {/* GLASSMORPHISM CHAT AREA */}
+            <div style={{ 
+                flex: 1, 
+                overflowY: 'auto', 
+                padding: '24px', 
+                background: 'rgba(255,255,255,0.05)', 
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderLeft: '1px solid rgba(255,255,255,0.2)', 
+                borderRight: '1px solid rgba(255,255,255,0.2)', 
+                boxShadow: 'inset 0 0 20px rgba(0,0,0,0.02)'
+            }}>
                 {messages.length === 0 && (
-                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '40px' }}>
-                        <p>No chat history yet. Say hi to NutriBot!</p>
+                    <div style={{ textAlign: 'center', marginTop: '60px', animation: 'popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                        <div style={{ background: 'var(--primary-color)', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', color: 'white', boxShadow: '0 8px 24px rgba(109,186,95,0.4)' }}>
+                            <Bot size={40} />
+                        </div>
+                        <h2 style={{ fontSize: '1.8rem', color: 'var(--text-main)', marginBottom: '10px' }}>Hi {userName}! 👋</h2>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', maxWidth: '400px', margin: '0 auto' }}>I'm NutriBot. I can generate recipes, create meal plans, and even give you a picture of what we're cooking!</p>
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
+                            <span style={{ background: 'rgba(109,186,95,0.1)', color: 'var(--primary-color)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem' }}>"Make a high protein breakfast"</span>
+                            <span style={{ background: 'rgba(109,186,95,0.1)', color: 'var(--primary-color)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem' }}>"Recipe for chicken alfredo"</span>
+                        </div>
                     </div>
                 )}
                 {messages.map((msg, idx) => (
@@ -181,14 +324,19 @@ export default function ChatPage() {
                         marginBottom: '20px'
                     }}>
                         <div style={{ 
-                            maxWidth: '75%', 
-                            padding: '12px 16px', 
-                            borderRadius: '12px',
-                            background: msg.role === 'user' ? 'var(--primary-color)' : 'var(--bg-card)',
+                            maxWidth: '78%', 
+                            padding: '14px 18px', 
+                            borderRadius: msg.role === 'user' ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+                            background: msg.role === 'user' 
+                                ? 'linear-gradient(135deg, var(--primary-color), var(--primary-hover))' 
+                                : 'rgba(255,255,255,0.6)',
+                            backdropFilter: msg.role === 'user' ? 'none' : 'blur(10px)',
+                            border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.8)',
                             color: msg.role === 'user' ? '#fff' : 'var(--text-main)',
-                            boxShadow: 'var(--shadow-sm)',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
                             position: 'relative',
-                            group: 'true'
+                            animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                            transformOrigin: msg.role === 'user' ? 'bottom right' : 'bottom left',
                         }} className="chat-bubble-group">
                             
                             {editingId === msg._id ? (
@@ -246,23 +394,60 @@ export default function ChatPage() {
                 <div ref={messagesEndRef} />
             </div>
 
-            <div style={{ padding: '15px 20px', background: 'var(--bg-card)', borderRadius: '0 0 12px 12px', border: '1px solid var(--border)', borderTop: 'none', display: 'flex', gap: '10px' }}>
+            {/* GLASSMORPHISM INPUT AREA */}
+            <div style={{ 
+                padding: '20px', 
+                background: 'rgba(255, 255, 255, 0.1)', 
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                borderRadius: '0 0 16px 16px', 
+                border: '1px solid rgba(255,255,255,0.2)', 
+                borderTop: 'none',
+                display: 'flex', 
+                gap: '12px',
+                boxShadow: '0 -4px 30px rgba(0, 0, 0, 0.05)',
+                zIndex: 10
+            }}>
+                <input
+                    type="file"
+                    accept="image/*"
+                    ref={fileInputRef}
+                    style={{ display: 'none' }}
+                    onChange={handleImageUpload}
+                />
+                <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Upload ingredients photo"
+                    style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '12px', width: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                >
+                    <Camera size={20} />
+                </button>
                 <input
                     type="text"
-                    placeholder="Ask for recipes, meal plans, or nutrition advice..."
+                    placeholder="Ask for recipes, meal plans, or upload ingredients..."
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                    style={{ flex: 1, padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)' }}
+                    style={{ flex: 1, padding: '14px 20px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(255,255,255,0.5)', color: 'var(--text-main)', fontSize: '1rem', outline: 'none', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}
                     disabled={isSending}
                 />
-                <button 
-                    onClick={handleSend} 
-                    disabled={isSending}
-                    style={{ padding: '0 20px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold' }}
-                >
-                    <Send size={18} /> {isSending ? "Thinking..." : "Send"}
-                </button>
+                
+                {isSending ? (
+                    <button 
+                        onClick={stopGeneration}
+                        style={{ padding: '0 24px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
+                    >
+                        <StopCircle size={20} /> Stop
+                    </button>
+                ) : (
+                    <button 
+                        id="chat-send-btn"
+                        onClick={handleSend} 
+                        style={{ padding: '0 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(109,186,95,0.3)', transition: 'all 0.2s' }}
+                    >
+                        <Send size={20} /> Send
+                    </button>
+                )}
             </div>
         </div>
     );
