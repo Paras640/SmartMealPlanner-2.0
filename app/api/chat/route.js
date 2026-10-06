@@ -45,8 +45,24 @@ async function generateImage(dishName) {
       "professional food photography of " + dishName + ", highly detailed, 4k, delicious, appetizing, cinematic lighting, restaurant quality, no text"
     );
     const seed = Math.floor(Math.random() * 1000000);
-    // Pollinations.ai generates images on-demand via URL - just return the URL directly
-    return `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
+    const url = `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&seed=${seed}&nologo=true`;
+
+    // Fetch server-side and return as base64 data URL to avoid browser CORS/referrer blocks
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; SmartMealPlanner/1.0)',
+        'Accept': 'image/jpeg,image/*',
+      }
+    });
+
+    if (!response.ok) {
+      console.warn("[Image] Pollinations returned:", response.status);
+      return null;
+    }
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    return `data:${contentType};base64,${base64}`;
   } catch (err) {
     console.error("[Image Gen Error]", err.message);
     return null;
