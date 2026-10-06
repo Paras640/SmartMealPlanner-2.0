@@ -58,13 +58,19 @@ function fallbackResponse(message) {
 }
 
 // ── Chat Response Generator ────────────────────────────────────────────────────
-async function generateChatResponse(userMessage, history = [], modelId = "llama-3.1-70b-versatile") {
+async function generateChatResponse(userMessage, history = [], modelId = "llama-3.3-70b-versatile") {
   const groq = getGroq();
   if (!groq) {
     return {
       text: "⚠️ AI is not configured. Please add `GROQ_API_KEY` to `.env.local`.",
       imageUrl: null,
     };
+  }
+
+  // Handle decommissioned models fallback
+  let activeModel = modelId || "llama-3.3-70b-versatile";
+  if (activeModel === "llama-3.1-70b-versatile") {
+    activeModel = "llama-3.3-70b-versatile";
   }
 
   try {
@@ -79,7 +85,7 @@ async function generateChatResponse(userMessage, history = [], modelId = "llama-
     ];
 
     const completion = await groq.chat.completions.create({
-      model: modelId,
+      model: activeModel,
       messages: messages,
       temperature: 0.85,
       max_tokens: 800,
@@ -133,7 +139,7 @@ export async function POST(request) {
             $set: { userId, firebaseUID, updatedAt: new Date() },
             $push: { messages: { $each: messagesToSave } },
           },
-          { upsert: true, new: true }
+          { upsert: true, returnDocument: 'after' }
         );
       } catch (saveErr) {
         console.warn("[Chat] Failed to save:", saveErr.message);
