@@ -168,10 +168,56 @@ export async function POST(request) {
       }
     }
 
+    if (replyText.includes("⚠️ AI is not configured") || replyText.includes("I'm having trouble connecting right now")) {
+       return NextResponse.json({ error: "AI is currently overloaded due to high demand. Spikes in demand are temporary. Please try again." }, { status: 503 });
+    }
+
     return NextResponse.json({ text: replyText, imageUrl, dishName });
   } catch (err) {
     console.error("[Chat API] Error:", err.message);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+// ── DELETE: Delete a message ───────────────────────────────────────────────────
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get("userId");
+    const messageId = searchParams.get("messageId");
+    if (!userId || !messageId) return NextResponse.json({ error: "Missing params" }, { status: 400 });
+
+    const db = await initDb();
+    if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
+
+    await db.ChatSession.updateOne(
+      { $or: [{ userId }, { firebaseUID: userId }] },
+      { $pull: { messages: { _id: messageId } } }
+    );
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[Chat DELETE]", err.message);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
+
+// ── PUT: Edit a message ────────────────────────────────────────────────────────
+export async function PUT(request) {
+  try {
+    const { userId, messageId, newText } = await request.json();
+    if (!userId || !messageId || !newText) return NextResponse.json({ error: "Missing params" }, { status: 400 });
+
+    const db = await initDb();
+    if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
+
+    await db.ChatSession.updateOne(
+      { $or: [{ userId }, { firebaseUID: userId }], "messages._id": messageId },
+      { $set: { "messages.$.text": newText, updatedAt: new Date() } }
+    );
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[Chat PUT]", err.message);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 

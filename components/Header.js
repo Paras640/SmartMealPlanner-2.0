@@ -12,6 +12,7 @@ const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/products', label: 'Recipes' },
     { href: '/community', label: 'Community' },
+    { href: '/chat', label: 'Chatbot' },
     { href: '/about', label: 'About' },
 ];
 
