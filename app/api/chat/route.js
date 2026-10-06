@@ -41,30 +41,52 @@ function getGroq() {
 // ── Pollinations.ai Image Generation (free, no API key needed) ────────────────
 async function generateImage(dishName) {
   try {
+    // Simple, direct prompt — just the dish name works best for food images
     const prompt = encodeURIComponent(
-      "professional food photography of " + dishName + ", highly detailed, 4k, delicious, appetizing, cinematic lighting, restaurant quality, no text"
+      `${dishName}, close-up, on a plate, food photo, white background, studio lighting, top-down view`
     );
     const seed = Math.floor(Math.random() * 1000000);
     const url = `https://image.pollinations.ai/prompt/${prompt}?width=512&height=512&seed=${seed}&nologo=true`;
 
-    // Fetch server-side and return as base64 data URL to avoid browser CORS/referrer blocks
+    // Fetch with a 15-second timeout to avoid blocking the response
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
     const response = await fetch(url, {
+      signal: controller.signal,
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; SmartMealPlanner/1.0)',
         'Accept': 'image/jpeg,image/*',
       }
     });
+    clearTimeout(timeout);
 
     if (!response.ok) {
       console.warn("[Image] Pollinations returned:", response.status);
       return null;
     }
+
     const contentType = response.headers.get('content-type') || 'image/jpeg';
+    // Make sure we actually got an image, not an error page
+    if (!contentType.startsWith('image/')) {
+      console.warn("[Image] Got non-image content-type:", contentType);
+      return null;
+    }
+
     const arrayBuffer = await response.arrayBuffer();
+    if (arrayBuffer.byteLength < 1000) {
+      console.warn("[Image] Image too small, likely invalid:", arrayBuffer.byteLength);
+      return null;
+    }
+
     const base64 = Buffer.from(arrayBuffer).toString('base64');
     return `data:${contentType};base64,${base64}`;
   } catch (err) {
-    console.error("[Image Gen Error]", err.message);
+    if (err.name === 'AbortError') {
+      console.warn("[Image] Timed out generating image for:", dishName);
+    } else {
+      console.error("[Image Gen Error]", err.message);
+    }
     return null;
   }
 }
@@ -124,7 +146,6 @@ async function generateChatResponse(userMessage, history = [], modelId = "openai
     });
 
     let responseText = completion.choices[0]?.message?.content || "";
-    let imageUrl = null;
     let dishName = null;
 
     // Check for image tag — extract dish name but do NOT wait for generation here
@@ -167,8 +188,11 @@ export async function POST(request) {
 
     const { text: replyText, dishName } = await generateChatResponse(message, history, modelId);
 
-    // Generate image URL immediately (Pollinations is instant URL construction)
-    const imageUrl = dishName ? await generateImage(dishName) : null;
+    // Generate image with timeout — never blocks response for more than 15s
+    let imageUrl = null;
+    if (dishName) {
+      imageUrl = await generateImage(dishName);
+    }
 
     // Save conversation to DB
     if (db && (userId || firebaseUID)) {
