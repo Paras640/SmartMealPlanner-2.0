@@ -30,12 +30,26 @@ function mapMeal(meal) {
     }
   }
 
+  let readyInMinutes = 30;
+  const cat = meal.strCategory ? meal.strCategory.toLowerCase() : "";
+  if (["dessert", "beef", "pork", "lamb"].includes(cat)) {
+    readyInMinutes = 45 + Math.floor(Math.random() * 30);
+  } else if (["breakfast", "starter"].includes(cat)) {
+    readyInMinutes = 10 + Math.floor(Math.random() * 15);
+  } else if (["seafood", "side", "vegetarian", "vegan"].includes(cat)) {
+    readyInMinutes = 20 + Math.floor(Math.random() * 15);
+  } else if (["chicken", "pasta"].includes(cat)) {
+    readyInMinutes = 25 + Math.floor(Math.random() * 15);
+  } else {
+    readyInMinutes = 20 + Math.floor(Math.random() * 40);
+  }
+
   return {
     id: meal.idMeal,
     title: meal.strMeal,
     image: meal.strMealThumb ?? null,
     calories: Math.floor(Math.random() * 400 + 300),
-    readyInMinutes: 30,
+    readyInMinutes,
     cuisineType: meal.strArea ?? null,
     mealType: meal.strCategory ?? null,
     dietLabels: meal.strTags ? meal.strTags.split(",").map(t => t.trim()).filter(Boolean) : [],

@@ -82,13 +82,17 @@ export async function POST(request, { params }) {
       recipe.likes = recipe.likes || [];
       recipe.dislikes = recipe.dislikes || [];
 
+      // Check current state before modifying
+      const hasLiked = recipe.likes.includes(firebaseUID);
+      const hasDisliked = recipe.dislikes.includes(firebaseUID);
+
       // Remove from both first to ensure mutually exclusive
       recipe.likes = recipe.likes.filter(uid => uid !== firebaseUID);
       recipe.dislikes = recipe.dislikes.filter(uid => uid !== firebaseUID);
 
-      if (action === "like") {
+      if (action === "like" && !hasLiked) {
         recipe.likes.push(firebaseUID);
-      } else if (action === "dislike") {
+      } else if (action === "dislike" && !hasDisliked) {
         recipe.dislikes.push(firebaseUID);
       }
 
