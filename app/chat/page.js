@@ -1,11 +1,12 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { Bot, Send, Trash2, Edit2, Check, X, Camera, StopCircle, RefreshCw, ChevronDown, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import "@/styles/Chatbot.css"; 
+import { prepareChatImage } from "@/lib/prepareChatImage";
 
 const CHAT_MODELS = [
     { id: "openai/gpt-oss-120b", name: "GPT-OSS 120B", description: "Powerful and detailed" },
@@ -19,6 +20,7 @@ export default function ChatPage() {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [isSending, setIsSending] = useState(false);
+    const [attachedImage, setAttachedImage] = useState(null);
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState("");
     const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
@@ -28,6 +30,20 @@ export default function ChatPage() {
     const abortControllerRef = useRef(null);
     const modelPickerRef = useRef(null);
     const modelPickerTriggerRef = useRef(null);
+
+    const loadHistory = useCallback(async (firebaseUser) => {
+        try {
+            const uid = firebaseUser.email || firebaseUser.uid;
+            const res = await fetch(`/api/chat?userId=${encodeURIComponent(uid)}`);
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setMessages(data);
+            }
+        } catch (err) {
+            console.error("Failed to load chat history:", err);
+            toast.error("Could not load history");
+        }
+    }, []);
 
     useEffect(() => {
         if (!isModelPickerOpen) return;
@@ -62,21 +78,7 @@ export default function ChatPage() {
             loadHistory(firebaseUser);
         });
         return () => unsub();
-    }, [router]);
-
-    const loadHistory = async (firebaseUser) => {
-        try {
-            const uid = firebaseUser.email || firebaseUser.uid;
-            const res = await fetch(`/api/chat?userId=${encodeURIComponent(uid)}`);
-            const data = await res.json();
-            if (Array.isArray(data)) {
-                setMessages(data);
-            }
-        } catch (err) {
-            console.error("Failed to load chat history:", err);
-            toast.error("Could not load history");
-        }
-    };
+    }, [loadHistory, router]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -87,17 +89,19 @@ export default function ChatPage() {
     }, [messages]);
 
     const handleSend = async () => {
-        if (!input.trim() || isSending) return;
+        if ((!input.trim() && !attachedImage) || isSending) return;
 
-        const userMessage = input.trim();
+        const imageData = attachedImage;
+        const userMessage = input.trim() || "Please describe this image and identify any food or ingredients relevant to nutrition.";
         const tempId = Date.now().toString();
         
         setMessages(prev => [
             ...prev, 
-            { _id: tempId, role: "user", text: userMessage },
+            { _id: tempId, role: "user", text: userMessage, imageUrl: imageData },
             { _id: "typing", role: "bot", text: "...", isTyping: true }
         ]);
         setInput("");
+        setAttachedImage(null);
         setIsSending(true);
 
         abortControllerRef.current = new AbortController();
@@ -111,7 +115,8 @@ export default function ChatPage() {
                     message: userMessage,
                     userId: user.email || user.uid,
                     firebaseUID: user.uid,
-                    modelId: selectedModel
+                    modelId: selectedModel,
+                    imageData
                 })
             });
             
@@ -159,58 +164,32 @@ export default function ChatPage() {
         }
     };
 
-    const convertToBase64 = (file) => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
-        });
-    };
-
     const handleImageUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        setMessages(prev => [...prev, { _id: Date.now().toString(), role: "user", text: "📷 Uploaded an image for analysis" }]);
-        setMessages(prev => [...prev, { _id: "typing", role: "bot", text: "Analyzing image...", isTyping: true }]);
-        setIsSending(true);
-
         try {
-            const base64 = await convertToBase64(file);
-            const response = await fetch('/api/ai-media/identify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageBase64: base64 })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
-                const ingredientList = ingredients.length > 0 ? ingredients.join(", ") : "items";
-                
-                // Immediately ask the chatbot to use these ingredients to suggest a recipe
-                const followUpPrompt = `I uploaded an image of my ingredients and you identified: ${ingredientList}. Please suggest a recipe I can make with these!`;
-                
-                setInput(followUpPrompt);
-                toast.success("Image analyzed! Sending to NutriBot...");
-                
-                // We fake-type the prompt and let the user send it, or send it automatically:
-                setTimeout(() => {
-                    document.getElementById('chat-send-btn')?.click();
-                }, 500);
-
-            } else {
-                toast.error("Image analysis failed");
-            }
-            setMessages(prev => prev.filter(m => m._id !== "typing"));
+            setAttachedImage(await prepareChatImage(file));
+            toast.success("Image attached. Add a question and send it to NutriBot.");
         } catch (err) {
-            console.error("Vision Error:", err);
-            toast.error("Vision AI connection failed");
-            setMessages(prev => prev.filter(m => m._id !== "typing"));
+            console.error("Image attachment error:", err);
+            toast.error(err.message || "Could not attach this image.");
         } finally {
-            setIsSending(false);
             e.target.value = "";
+        }
+    };
+
+    const handlePasteImage = async (event) => {
+        const item = Array.from(event.clipboardData?.items || []).find((entry) => entry.type.startsWith("image/"));
+        const file = item?.getAsFile();
+        if (!file) return;
+        event.preventDefault();
+        try {
+            setAttachedImage(await prepareChatImage(file));
+            toast.success("Pasted image attached. Add a question and send it to NutriBot.");
+        } catch (err) {
+            console.error("Pasted image attachment error:", err);
+            toast.error(err.message || "Could not attach this image.");
         }
     };
 
@@ -373,10 +352,10 @@ export default function ChatPage() {
                             <Bot size={40} />
                         </div>
                         <h2 style={{ fontSize: '1.8rem', color: 'var(--text-main)', marginBottom: '10px' }}>Hi {userName}! 👋</h2>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', maxWidth: '400px', margin: '0 auto' }}>I'm NutriBot. I can generate recipes, create meal plans, and even give you a picture of what we're cooking!</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem', maxWidth: '400px', margin: '0 auto' }}>I&apos;m NutriBot. I can generate recipes, create meal plans, and even give you a picture of what we&apos;re cooking!</p>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '20px', flexWrap: 'wrap' }}>
-                            <span style={{ background: 'rgba(109,186,95,0.1)', color: 'var(--primary-color)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem' }}>"Make a high protein breakfast"</span>
-                            <span style={{ background: 'rgba(109,186,95,0.1)', color: 'var(--primary-color)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem' }}>"Recipe for chicken alfredo"</span>
+                            <span style={{ background: 'rgba(109,186,95,0.1)', color: 'var(--primary-color)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem' }}>&quot;Make a high protein breakfast&quot;</span>
+                            <span style={{ background: 'rgba(109,186,95,0.1)', color: 'var(--primary-color)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.85rem' }}>&quot;Recipe for a high-protein lunch&quot;</span>
                         </div>
                     </div>
                 )}
@@ -462,10 +441,18 @@ export default function ChatPage() {
                 border: '1px solid rgba(255,255,255,0.2)', 
                 borderTop: 'none',
                 display: 'flex', 
+                flexWrap: 'wrap',
                 gap: '12px',
                 boxShadow: '0 -4px 30px rgba(0, 0, 0, 0.05)',
                 zIndex: 10
             }}>
+                {attachedImage && (
+                    <div style={{ flexBasis: '100%', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img src={attachedImage} alt="Image attached for analysis" style={{ width: '64px', height: '64px', objectFit: 'cover', borderRadius: '10px' }} />
+                        <span style={{ color: 'var(--text-main)', flex: 1 }}>Image ready. Add a question or send it for analysis.</span>
+                        <button type="button" onClick={() => setAttachedImage(null)} aria-label="Remove attached image" style={{ border: 0, background: 'transparent', color: 'var(--text-main)', cursor: 'pointer' }}><X size={18} /></button>
+                    </div>
+                )}
                 <input
                     type="file"
                     accept="image/*"
@@ -482,10 +469,11 @@ export default function ChatPage() {
                 </button>
                 <input
                     type="text"
-                    placeholder="Ask for recipes, meal plans, or upload ingredients..."
+                    placeholder="Ask NutriBot or paste an image..."
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                    onPaste={handlePasteImage}
                     style={{ flex: 1, padding: '14px 20px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(255,255,255,0.5)', color: 'var(--text-main)', fontSize: '1rem', outline: 'none', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}
                     disabled={isSending}
                 />

@@ -29,6 +29,8 @@ Rules:
 
 // ── Groq Client ──────────────────────────────────────────────────────────────
 let _groq = null;
+const VISION_MODEL = "qwen/qwen3.8-27b";
+const MAX_IMAGE_DATA_URL_LENGTH = 4_200_000;
 
 function getGroq() {
   if (_groq) return _groq;
@@ -99,7 +101,7 @@ function fallbackResponse(message) {
   if (lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
     text = "Hi there! 👋 I'm NutriBot. The AI servers are super busy right now, but I can still answer basic questions about recipes, meal plans, or nutrition facts!";
   } else if (lower.includes("recipe") || lower.includes("cook") || lower.includes("make") || lower.includes("how")) {
-    text = "I'd love to help with a recipe! 🍳 Since the AI is heavily loaded right now, I recommend trying a classic like Grilled Lemon Herb Chicken. Let me know if you need basic instructions!";
+    text = "I'd love to help with a recipe! 🍳 Since the AI is heavily loaded right now, I recommend trying a classic vegetable soup. Let me know if you need basic instructions!";
   } else if (lower.includes("calorie") || lower.includes("nutrition") || lower.includes("healthy") || lower.includes("diet")) {
     text = "Great nutrition question! 🥗 For a balanced meal, aim for lean proteins, complex carbs, and plenty of vegetables. Keep it simple and colorful!";
   } else if (lower.includes("vegan") || lower.includes("vegetarian") || lower.includes("keto")) {
@@ -112,7 +114,7 @@ function fallbackResponse(message) {
 }
 
 // ── Chat Response Generator ────────────────────────────────────────────────────
-async function generateChatResponse(userMessage, history = [], modelId = "openai/gpt-oss-120b") {
+async function generateChatResponse(userMessage, history = [], modelId = "openai/gpt-oss-120b", imageData = null) {
   const groq = getGroq();
   if (!groq) {
     return {
@@ -135,11 +137,19 @@ async function generateChatResponse(userMessage, history = [], modelId = "openai
         role: m.role === "bot" ? "assistant" : "user",
         content: (m.text || "").replace(/\[IMAGE:\s*.+?\]/gi, "").trim(),
       })),
-      { role: "user", content: userMessage }
+      {
+        role: "user",
+        content: imageData
+          ? [
+              { type: "text", text: userMessage },
+              { type: "image_url", image_url: { url: imageData } },
+            ]
+          : userMessage,
+      }
     ];
 
     const completion = await groq.chat.completions.create({
-      model: activeModel,
+      model: imageData ? VISION_MODEL : activeModel,
       messages: messages,
       temperature: 0.85,
       max_tokens: 800,
@@ -182,6 +192,7 @@ async function generateChatResponse(userMessage, history = [], modelId = "openai
     return { text: responseText, dishName };
   } catch (err) {
     console.error("[Chat API] Groq error:", err.message);
+    if (imageData) throw new Error("Image analysis is temporarily unavailable.");
     return fallbackResponse(userMessage);
   }
 }
@@ -189,10 +200,20 @@ async function generateChatResponse(userMessage, history = [], modelId = "openai
 // ── POST: Send a message ───────────────────────────────────────────────────────
 export async function POST(request) {
   try {
-    const { message, userId, firebaseUID, modelId } = await request.json();
-    if (!message?.trim()) {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+    const { message, userId, firebaseUID, modelId, imageData } = await request.json();
+    if (imageData !== undefined && imageData !== null && (
+      typeof imageData !== "string"
+      || imageData.length > MAX_IMAGE_DATA_URL_LENGTH
+      || !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(imageData)
+    )) {
+      return NextResponse.json({ error: "Image must be a valid JPEG, PNG, or WebP smaller than 4 MB." }, { status: 400 });
     }
+
+    const userMessage = typeof message === "string" ? message.trim() : "";
+    if (!userMessage && !imageData) {
+      return NextResponse.json({ error: "Message or image is required" }, { status: 400 });
+    }
+    const prompt = userMessage || "Please describe this image and identify any food or ingredients relevant to nutrition.";
 
     // Load conversation history
     let history = [];
@@ -209,7 +230,16 @@ export async function POST(request) {
       console.warn("[Chat] DB unavailable:", dbErr.message);
     }
 
-    const { text: replyText, dishName } = await generateChatResponse(message, history, modelId);
+    let response;
+    try {
+      response = await generateChatResponse(prompt, history, modelId, imageData);
+    } catch (err) {
+      if (imageData) {
+        return NextResponse.json({ error: err.message }, { status: 502 });
+      }
+      throw err;
+    }
+    const { text: replyText, dishName } = response;
 
     // Generate image with timeout — never blocks response for more than 15s
     let imageUrl = null;
@@ -222,7 +252,7 @@ export async function POST(request) {
     if (db && (userId || firebaseUID)) {
       try {
         const messagesToSave = [
-          { role: "user", text: message, timestamp: new Date() },
+          { role: "user", text: imageData ? `📷 Image attached: ${prompt}` : prompt, timestamp: new Date() },
           { role: "bot", text: replyText, dishName, imageUrl, timestamp: new Date() },
         ];
         await db.ChatSession.findOneAndUpdate(

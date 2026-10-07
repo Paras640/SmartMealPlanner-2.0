@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { initDb } from "@/lib/models";
 import { fetchMealDbSearch } from "@/lib/recipeSearch";
+import { isRecipeAllowedForDiet } from "@/lib/recipeDietaryFilter";
 
 /**
  * Universal multi-stage recipe search using TheMealDB:
@@ -14,10 +15,26 @@ async function fetchWithFallback(query) {
   const meals = await fetchMealDbSearch(query);
 
   if (meals.length > 0) {
-    return { meals: meals.slice(0, 24), matchedBy: "universal-search" };
+    return { meals: meals.slice(0, 60), matchedBy: "universal-search" };
   }
 
   return { meals: [], matchedBy: "none" };
+}
+
+async function fetchFullMealDetails(meal) {
+  const hasIngredients = Object.entries(meal).some(([key, value]) => (
+    /^strIngredient\d+$/.test(key) && typeof value === "string" && value.trim()
+  ));
+  if (hasIngredients || !meal.idMeal) return meal;
+
+  const response = await fetch(
+    `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${encodeURIComponent(meal.idMeal)}`,
+    { next: { revalidate: 3600 } }
+  );
+  if (!response.ok) throw new Error(`TheMealDB detail lookup failed with HTTP ${response.status}`);
+
+  const data = await response.json();
+  return data.meals?.[0] || meal;
 }
 
 function mapMeal(meal) {
@@ -64,10 +81,24 @@ function mapMeal(meal) {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get("query") || "chicken";
+    const query = searchParams.get("query") || "vegetarian";
+    const dietaryPreference = searchParams.get("diet") || "All";
 
     const { meals, matchedBy } = await fetchWithFallback(query.trim());
-    const recipes = meals.map(mapMeal);
+    let candidateMeals = meals;
+    if (["veg", "vegan"].includes(dietaryPreference.toLowerCase())) {
+      const details = await Promise.allSettled(meals.map(fetchFullMealDetails));
+      candidateMeals = details.flatMap((result) => {
+        if (result.status === "fulfilled") return [result.value];
+        console.warn("[Recipes API] Could not verify recipe ingredients:", result.reason);
+        return [];
+      });
+    }
+
+    const recipes = candidateMeals
+      .filter((meal) => isRecipeAllowedForDiet(meal, dietaryPreference))
+      .slice(0, 24)
+      .map(mapMeal);
 
     return NextResponse.json({ recipes, count: recipes.length, matchedBy });
   } catch (err) {

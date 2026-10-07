@@ -14,13 +14,14 @@ export default function SmartMealPlanner() {
   const [randomRecipe, setRandomRecipe] = useState(null);
   const [loadingRandom, setLoadingRandom] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
+  const [dietaryPreference, setDietaryPreference] = useState("Veg");
 
-  const fetchRecipes = async (searchQuery) => {
+  const fetchRecipes = async (searchQuery, diet = dietaryPreference) => {
     if (!searchQuery || !searchQuery.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/recipes?query=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`/api/recipes?query=${encodeURIComponent(searchQuery)}&diet=${encodeURIComponent(diet)}`);
       if (!res.ok) throw new Error(`Server error (${res.status})`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -33,27 +34,40 @@ export default function SmartMealPlanner() {
     }
   };
 
-  const fetchRandomRecipe = async () => {
+  const fetchRandomRecipe = async (diet) => {
     setLoadingRandom(true);
     try {
-      const res = await fetch("https://www.themealdb.com/api/json/v1/1/random.php");
+      const query = diet === "Vegan" ? "Vegan" : "Vegetarian";
+      const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}&diet=${encodeURIComponent(diet)}`);
       const data = await res.json();
-      if (data.meals && data.meals[0]) {
-        setRandomRecipe(data.meals[0]);
+      const recipes = data.recipes || [];
+      if (recipes.length) {
+        const recipe = recipes[Math.floor(Math.random() * recipes.length)];
+        setRandomRecipe({
+          idMeal: recipe.id,
+          strMeal: recipe.title,
+          strMealThumb: recipe.image,
+          strArea: recipe.cuisineType,
+          strCategory: recipe.mealType
+        });
+      } else {
+        setRandomRecipe(null);
       }
-    } catch {}
-    setLoadingRandom(false);
+    } catch (err) {
+      console.error("Failed to load a preference-safe featured recipe:", err);
+      setRandomRecipe(null);
+    } finally {
+      setLoadingRandom(false);
+    }
   };
-
-  useEffect(() => {
-    fetchRandomRecipe();
-  }, []);
 
   useEffect(() => {
     const refreshUserProfile = async (firebaseUser) => {
       if (!firebaseUser) {
         setAiEnabled(true);
-        fetchRecipes("chicken"); // Default for guests
+        setDietaryPreference("Veg");
+        fetchRecipes("Vegetarian", "Veg");
+        fetchRandomRecipe("Veg");
         return;
       }
 
@@ -62,11 +76,9 @@ export default function SmartMealPlanner() {
         if (res.ok) {
           const profile = await res.json();
           setAiEnabled(profile.isAIEnabled !== false);
-          
-          let targetQuery = "chicken";
-          if (profile.dietaryType === "Veg" || profile.dietaryType === "Vegan") targetQuery = "Vegetarian";
-          else if (profile.dietaryType === "Keto") targetQuery = "Beef";
-          else if (profile.dietaryType === "Seafood") targetQuery = "Seafood";
+          const diet = profile.dietaryType || profile.mealPreference || "Veg";
+          setDietaryPreference(diet);
+          let targetQuery = diet === "Vegan" ? "Vegan" : diet === "Non-Veg" ? "Beef" : "Vegetarian";
           
           // Consider health conditions
           if (profile.healthConditions && profile.healthConditions.length > 0) {
@@ -78,14 +90,19 @@ export default function SmartMealPlanner() {
           }
           
           setQuery(targetQuery);
-          fetchRecipes(targetQuery);
+          fetchRecipes(targetQuery, diet);
+          fetchRandomRecipe(diet);
         } else {
           setAiEnabled(true);
-          fetchRecipes("chicken");
+          setDietaryPreference("Veg");
+          fetchRecipes("Vegetarian", "Veg");
+          fetchRandomRecipe("Veg");
         }
       } catch {
         setAiEnabled(true);
-        fetchRecipes("chicken");
+        setDietaryPreference("Veg");
+        fetchRecipes("Vegetarian", "Veg");
+        fetchRandomRecipe("Veg");
       }
     };
 
@@ -114,10 +131,10 @@ export default function SmartMealPlanner() {
   const handleCategoryClick = (cat) => {
     setActiveCategory(cat);
     let targetQuery = cat;
-    if (cat === "all") targetQuery = "chicken";
-    else if (cat === "Non-Vegetarian") targetQuery = "chicken";
+    if (cat === "all") targetQuery = dietaryPreference === "Vegan" ? "Vegan" : "Vegetarian";
+    else if (cat === "Non-Vegetarian") targetQuery = "Beef";
     setQuery(targetQuery);
-    fetchRecipes(targetQuery);
+    fetchRecipes(targetQuery, dietaryPreference);
   };
 
   const categories = ["all", "Non-Vegetarian", "Seafood", "Vegetarian", "Dessert", "Pasta", "Vegan"];

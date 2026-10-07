@@ -1,8 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebaseConfig';
 import '@/components/Product.css'; // Optional custom styles
+
+function defaultQueryForDiet(diet) {
+    const normalizedDiet = diet.toLowerCase();
+    if (normalizedDiet === 'vegan') return 'Vegan';
+    if (normalizedDiet === 'non-veg' || normalizedDiet === 'non-vegetarian') return 'Beef';
+    return 'Vegetarian';
+}
 
 export default function ProductsPage() {
     const router = useRouter();
@@ -10,26 +19,17 @@ export default function ProductsPage() {
     const [loading, setLoading] = useState(true);
     const [fetchSource, setFetchSource] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [dietaryPreference, setDietaryPreference] = useState('All');
+    const [preferenceLoaded, setPreferenceLoaded] = useState(false);
+    const [preferenceError, setPreferenceError] = useState(false);
 
-    useEffect(() => {
-        const delayDebounceFn = setTimeout(() => {
-        if (searchTerm.trim()) {
-            loadRecipes(searchTerm.trim());
-        } else {
-            loadRecipes('chicken');
-        }
-    }, 350);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
-
-    const loadRecipes = async (query) => {
+    const loadRecipes = useCallback(async (query, diet) => {
         try {
             setLoading(true);
             setRecipes([]);
             setFetchSource('');
 
-            const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}`);
+            const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}&diet=${encodeURIComponent(diet)}`);
             if (!res.ok) {
                 const errData = await res.text();
                 throw new Error(errData || `HTTP ${res.status}`);
@@ -46,12 +46,47 @@ export default function ProductsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (!firebaseUser) {
+                setDietaryPreference('All');
+                setPreferenceLoaded(true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/users?uid=${encodeURIComponent(firebaseUser.uid)}`);
+                if (!response.ok) throw new Error('Could not load your saved dietary preference.');
+                const profile = await response.json();
+                setDietaryPreference(profile.dietaryType || profile.mealPreference || 'All');
+            } catch (error) {
+                console.error('Could not load recipe dietary preference:', error);
+                setFetchSource('Could not load your dietary preference. Recipes were not shown.');
+                setRecipes([]);
+                setPreferenceError(true);
+                setLoading(false);
+            } finally {
+                setPreferenceLoaded(true);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        if (!preferenceLoaded || preferenceError) return;
+        const delayDebounceFn = setTimeout(() => {
+            loadRecipes(searchTerm.trim() || defaultQueryForDiet(dietaryPreference), dietaryPreference);
+        }, 350);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [searchTerm, dietaryPreference, preferenceLoaded, preferenceError, loadRecipes]);
 
     const handleSearch = async (event) => {
         event.preventDefault();
-        const query = searchTerm.trim() || 'chicken';
-        await loadRecipes(query);
+        const query = searchTerm.trim() || defaultQueryForDiet(dietaryPreference);
+        await loadRecipes(query, dietaryPreference);
     };
 
     return (
@@ -60,7 +95,7 @@ export default function ProductsPage() {
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                     <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '10px' }}>Explore Recipes</h2>
                     <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
-                        Browse our curated collection of healthy and delicious meals.
+                        Browse recipes tailored to your {dietaryPreference === 'All' ? 'dietary preferences' : `${dietaryPreference} preference`}.
                     </p>
                     {fetchSource && (
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'var(--bg-hover)', padding: '6px 16px', borderRadius: '20px', display: 'inline-block', marginTop: '12px', fontWeight: '600' }}>
@@ -147,9 +182,9 @@ export default function ProductsPage() {
                                 {recipes.length === 0 && (
                                     <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '80px', background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
                                         <div style={{ fontSize: '4rem', marginBottom: '20px' }}>🍽️</div>
-                                        <h3 style={{ fontSize: '1.5rem', marginBottom: '10px' }}>No recipes found!</h3>
-                                        <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Try another search term or refresh the page.</p>
-                                        <button style={{ padding: '12px 30px', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: '30px', fontWeight: '600', cursor: 'pointer', color: 'var(--text-main)' }} onClick={() => loadRecipes('chicken')}>Retry with default →</button>
+                                        <h3 style={{ fontSize: '1.5rem', marginBottom: '10px' }}>{preferenceError ? 'Could not verify your dietary preference' : 'No recipes found!'}</h3>
+                                        <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>{preferenceError ? 'Recipes are hidden until your saved preference can be loaded.' : 'Try another search term. Recipes that do not match your saved dietary preference are filtered out.'}</p>
+                                        {!preferenceError && <button style={{ padding: '12px 30px', background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: '30px', fontWeight: '600', cursor: 'pointer', color: 'var(--text-main)' }} onClick={() => loadRecipes(defaultQueryForDiet(dietaryPreference), dietaryPreference)}>Show recommended recipes →</button>}
                                     </div>
                                 )}
                             </div>

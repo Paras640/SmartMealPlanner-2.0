@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -16,6 +16,41 @@ export default function DashboardPage() {
     const [loadingRecipes, setLoadingRecipes] = useState(false);
     const [familyInfo, setFamilyInfo] = useState(null);
     const [invites, setInvites] = useState([]);
+
+    const fetchPersonalizedRecipes = useCallback(async (profileData) => {
+        setLoadingRecipes(true);
+        try {
+            let query = 'Seafood';
+            if (profileData.dietaryType === 'Veg' || profileData.dietaryType === 'Vegan') query = 'Vegetarian';
+            if (profileData.dietaryType === 'Keto') query = 'Beef';
+            if (profileData.dietaryType === 'Non-Veg') query = 'Beef';
+
+            if (profileData.healthConditions && profileData.healthConditions.length > 0) {
+                if (profileData.healthConditions.includes('hypertension')) {
+                    query = 'healthy ' + query;
+                } else if (profileData.healthConditions.includes('diabetic')) {
+                    query = 'diabetic ' + query;
+                }
+            }
+
+            const diet = profileData.dietaryType || profileData.mealPreference || 'All';
+            const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}&diet=${encodeURIComponent(diet)}`);
+            const data = await res.json();
+
+            if (data.recipes) {
+                const shuffled = data.recipes.sort(() => 0.5 - Math.random());
+                setRecipes(shuffled.slice(0, 6).map(r => ({
+                    idMeal: r.id,
+                    strMeal: r.title,
+                    strMealThumb: r.image
+                })));
+            }
+        } catch (err) {
+            toast.error("Failed to load suggestions");
+        } finally {
+            setLoadingRecipes(false);
+        }
+    }, []);
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -59,41 +94,7 @@ export default function DashboardPage() {
             }
         });
         return () => unsub();
-    }, [router]);
-
-    const fetchPersonalizedRecipes = async (profileData) => {
-        setLoadingRecipes(true);
-        try {
-            let query = 'Seafood'; 
-            if (profileData.dietaryType === 'Veg' || profileData.dietaryType === 'Vegan') query = 'Vegetarian';
-            if (profileData.dietaryType === 'Keto') query = 'Beef';
-            if (profileData.dietaryType === 'Non-Veg') query = 'Chicken';
-            
-            if (profileData.healthConditions && profileData.healthConditions.length > 0) {
-                if (profileData.healthConditions.includes('hypertension')) {
-                    query = 'healthy ' + query;
-                } else if (profileData.healthConditions.includes('diabetic')) {
-                    query = 'diabetic ' + query;
-                }
-            }
-            
-            const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}`);
-            const data = await res.json();
-            
-            if (data.recipes) {
-                const shuffled = data.recipes.sort(() => 0.5 - Math.random());
-                setRecipes(shuffled.slice(0, 6).map(r => ({
-                    idMeal: r.id,
-                    strMeal: r.title,
-                    strMealThumb: r.image
-                })));
-            }
-        } catch (err) {
-            toast.error("Failed to load suggestions");
-        } finally {
-            setLoadingRecipes(false);
-        }
-    };
+    }, [fetchPersonalizedRecipes, router]);
 
     const [inviteCode, setInviteCode] = useState('');
     const [inviteEmail, setInviteEmail] = useState('');

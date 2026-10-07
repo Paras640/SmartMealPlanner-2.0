@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import "@/styles/Chatbot.css";
 import { auth } from "@/lib/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
+import { prepareChatImage } from "@/lib/prepareChatImage";
 
 const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
     const [user, setUser] = useState(null);
@@ -13,6 +14,7 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState("");
     const [isSending, setIsSending] = useState(false);
+    const [attachedImage, setAttachedImage] = useState(null);
     const fileInputRef = useRef(null);
     const abortControllerRef = useRef(null);
 
@@ -28,7 +30,9 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                 const res = await fetch(`/api/users?uid=${firebaseUser.uid}`);
                 if (res.ok) {
                     const profile = await res.json();
-                    setAiEnabled(profile.isAIEnabled !== false);
+                    const enabled = profile.isAIEnabled !== false;
+                    setAiEnabled(enabled);
+                    if (!enabled) setIsOpen(false);
                 } else {
                     setAiEnabled(true);
                 }
@@ -53,12 +57,7 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
     }, []);
 
     useEffect(() => {
-        if (!aiEnabled) {
-            setIsOpen(false);
-            return;
-        }
-
-        if (!user || !isOpen) {
+        if (!aiEnabled || !user || !isOpen) {
             return;
         }
 
@@ -74,21 +73,14 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
             .catch(err => console.error("Error loading chat history:", err));
     }, [aiEnabled, user, isOpen]);
 
-    const convertToBase64 = (file) => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
-        });
-    };
-
     const handleSend = async () => {
-        if (!input.trim() || isSending) return;
+        if ((!input.trim() && !attachedImage) || isSending) return;
 
-        const userMessage = input.trim();
-        setMessages(prev => [...prev, { text: userMessage, isBot: false }]);
+        const imageData = attachedImage;
+        const userMessage = input.trim() || "Please describe this image and identify any food or ingredients relevant to nutrition.";
+        setMessages(prev => [...prev, { text: userMessage, isBot: false, imageUrl: imageData }]);
         setInput("");
+        setAttachedImage(null);
         setIsSending(true);
 
         // Show typing indicator
@@ -104,7 +96,8 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                 body: JSON.stringify({
                     message: userMessage,
                     userId: user?.email || user?.firebaseUID,
-                    firebaseUID: user?.uid
+                    firebaseUID: user?.uid,
+                    imageData
                 })
             });
             const data = await response.json();
@@ -130,7 +123,7 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                     const without = prev.filter(m => !m.isTyping);
                     return [...without, { text: "Connection error. Please try again.", isBot: true }];
                 });
-                toast.error("NutriBot could not reach the backend");
+                toast.error(error.message || "NutriBot could not reach the backend");
             }
         } finally {
             setIsSending(false);
@@ -161,39 +154,31 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
         }
     };
 
-    const handleFridgeVision = async (e) => {
+    const handleImageUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
-        setMessages(prev => [...prev, { text: "Uploading fridge photo...", isBot: false }]);
-        setMessages(prev => [...prev, { text: "Analyzing with Vision AI...", isBot: true }]);
-
         try {
-            const base64 = await convertToBase64(file);
-            const response = await fetch('/api/ai-media/identify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageBase64: base64 })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                const ingredients = Array.isArray(data.ingredients) ? data.ingredients : [];
-                const ingredientList = ingredients.length > 0 ? ingredients.join(", ") : "items";
-                setMessages(prev => [...prev, {
-                    text: `Analysis complete. I found: ${ingredientList}. ${data.suggestion || "Try building a simple balanced meal with these ingredients."}`,
-                    isBot: true
-                }]);
-            } else {
-                toast.error("Image analysis failed");
-                setMessages(prev => [...prev, { text: "Failed to analyze image. Please try again.", isBot: true }]);
-            }
+            setAttachedImage(await prepareChatImage(file));
+            toast.success("Image attached. Add a question and send it to NutriBot.");
         } catch (err) {
-            console.error("Vision Error:", err);
-            toast.error("Vision AI connection failed");
-            setMessages(prev => [...prev, { text: "Error connecting to Vision AI.", isBot: true }]);
+            console.error("Image attachment error:", err);
+            toast.error(err.message || "Could not attach this image.");
         } finally {
             e.target.value = "";
+        }
+    };
+
+    const handlePasteImage = async (event) => {
+        const item = Array.from(event.clipboardData?.items || []).find((entry) => entry.type.startsWith("image/"));
+        const file = item?.getAsFile();
+        if (!file) return;
+        event.preventDefault();
+        try {
+            setAttachedImage(await prepareChatImage(file));
+            toast.success("Pasted image attached. Add a question and send it to NutriBot.");
+        } catch (err) {
+            console.error("Pasted image attachment error:", err);
+            toast.error(err.message || "Could not attach this image.");
         }
     };
 
@@ -288,7 +273,14 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                             </div>
                         ))}
                     </div>
-                    <div className="chatbot-input" style={{ background: 'rgba(255,255,255,0.2)', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px', display: 'flex', gap: '8px' }}>
+                    <div className="chatbot-input" style={{ background: 'rgba(255,255,255,0.2)', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '12px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {attachedImage && (
+                            <div style={{ flexBasis: '100%', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <img src={attachedImage} alt="Image attached for analysis" style={{ width: '52px', height: '52px', objectFit: 'cover', borderRadius: '8px' }} />
+                                <span style={{ color: 'var(--text-main)', flex: 1, fontSize: '0.8rem' }}>Image ready. Add a question or send it for analysis.</span>
+                                <button type="button" onClick={() => setAttachedImage(null)} aria-label="Remove attached image" style={{ border: 0, background: 'transparent', color: 'var(--text-main)', cursor: 'pointer' }}><X size={16} /></button>
+                            </div>
+                        )}
                         {!user ? (
                             <div style={{ flex: 1, padding: '10px', fontSize: '0.85rem', color: 'var(--text-muted)', textAlign: 'center', background: 'rgba(255,255,255,0.5)', borderRadius: '15px' }}>
                                 Please <span style={{ color: 'var(--primary-color)', cursor: 'pointer', fontWeight: 'bold' }} onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'login' }))}>Login</span> to chat with NutriBot.
@@ -300,22 +292,23 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                                     accept="image/*"
                                     ref={fileInputRef}
                                     style={{ display: 'none' }}
-                                    onChange={handleFridgeVision}
+                                    onChange={handleImageUpload}
                                 />
                                 <button
                                     className="vision-btn"
                                     onClick={() => fileInputRef.current?.click()}
-                                    title="Upload a fridge photo"
+                                    title="Upload an image"
                                     style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '12px', width: '40px', height: '40px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                                 >
                                     <Camera size={18} />
                                 </button>
                                 <input
                                     type="text"
-                                    placeholder="Type a message..."
+                                    placeholder="Type a question or paste an image..."
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                                    onPaste={handlePasteImage}
                                     style={{ flex: 1, background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '12px', padding: '10px', color: 'var(--text-main)', outline: 'none' }}
                                     disabled={isSending}
                                 />
