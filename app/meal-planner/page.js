@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { CalendarDays, Check, CircleAlert, DollarSign, Download, LoaderCircle, Share2, ShoppingBasket, Sparkles, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, Check, CircleAlert, DollarSign, Download, LoaderCircle, Share2, ShoppingBasket, Sparkles, Trash2, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { auth } from "@/lib/firebaseConfig";
 import { downloadMealPlanPdf } from "@/lib/mealPlanPdf";
@@ -35,6 +35,7 @@ export default function MealPlannerPage() {
     const [plan, setPlan] = useState(null);
     const [recentPlans, setRecentPlans] = useState([]);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [deletingPlanId, setDeletingPlanId] = useState(null);
     const [isAddingGroceries, setIsAddingGroceries] = useState(false);
     const [isSharingPlan, setIsSharingPlan] = useState(false);
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -204,6 +205,34 @@ export default function MealPlannerPage() {
         }
     };
 
+    const deleteRecentPlan = async (event, planId) => {
+        event.stopPropagation();
+        if (!user || !planId || deletingPlanId) return;
+
+        setDeletingPlanId(planId);
+        try {
+            const response = await fetch(
+                `/api/meal-planner?uid=${encodeURIComponent(user.uid)}&planId=${encodeURIComponent(planId)}`,
+                { method: "DELETE" },
+            );
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Could not delete the saved meal plan.");
+
+            setRecentPlans((current) => current.filter((recentPlan) => recentPlan.id !== planId));
+            if (plan?.id === planId) {
+                setPlan(null);
+                setGroceriesAdded(false);
+                setAppliedSwaps([]);
+            }
+            toast.success("Meal plan deleted from your recent plans.");
+        } catch (error) {
+            console.error("Could not delete saved meal plan:", error);
+            toast.error(error.message || "Could not delete the saved meal plan.");
+        } finally {
+            setDeletingPlanId(null);
+        }
+    };
+
     const applySubstitution = (dayIndex, mealIndex, swapIndex) => {
         setPlan((currentPlan) => {
             const nextPlan = structuredClone(currentPlan);
@@ -299,20 +328,36 @@ export default function MealPlannerPage() {
                         </div>
                         <div className="planner-recent-list">
                             {recentPlans.map((recentPlan, index) => (
-                                <button
-                                    className={`planner-recent-item${plan?.id === recentPlan.id ? " active" : ""}`}
+                                <article
+                                    className="planner-recent-card"
                                     key={recentPlan.id || `${recentPlan.generatedAt}-${index}`}
-                                    type="button"
-                                    onClick={() => {
-                                        setPlan(recentPlan);
-                                        setCurrency(recentPlan.currency || "USD");
-                                        setGroceriesAdded(false);
-                                        setAppliedSwaps([]);
-                                    }}
                                 >
-                                    <strong>{new Date(recentPlan.generatedAt).toLocaleDateString()}</strong>
-                                    <span>{recentPlan.days.length} days · {recentPlan.days.reduce((count, day) => count + day.meals.length, 0)} meals</span>
-                                </button>
+                                    <button
+                                        className={`planner-recent-item${plan?.id === recentPlan.id ? " active" : ""}`}
+                                        type="button"
+                                        onClick={() => {
+                                            setPlan(recentPlan);
+                                            setCurrency(recentPlan.currency || "USD");
+                                            setGroceriesAdded(false);
+                                            setAppliedSwaps([]);
+                                        }}
+                                    >
+                                        <strong>{new Date(recentPlan.generatedAt).toLocaleDateString()}</strong>
+                                        <span>{recentPlan.days.length} days · {recentPlan.days.reduce((count, day) => count + day.meals.length, 0)} meals</span>
+                                    </button>
+                                    <button
+                                        className="planner-recent-delete"
+                                        type="button"
+                                        aria-label={`Delete meal plan from ${new Date(recentPlan.generatedAt).toLocaleDateString()}`}
+                                        title="Delete meal plan"
+                                        disabled={!recentPlan.id || deletingPlanId !== null}
+                                        onClick={(event) => deleteRecentPlan(event, recentPlan.id)}
+                                    >
+                                        {deletingPlanId === recentPlan.id
+                                            ? <LoaderCircle className="planner-spinner" size={16} />
+                                            : <Trash2 size={16} />}
+                                    </button>
+                                </article>
                             ))}
                         </div>
                     </section>

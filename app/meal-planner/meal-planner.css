@@ -213,6 +213,7 @@
 
 .planner-recent-item {
     display: grid;
+    flex: 1;
     min-width: 150px;
     gap: 5px;
     padding: 12px 14px;
@@ -222,6 +223,38 @@
     color: var(--text);
     text-align: left;
     cursor: pointer;
+}
+
+.planner-recent-card {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: stretch;
+    gap: 6px;
+}
+
+.planner-recent-delete {
+    display: inline-flex;
+    width: 40px;
+    min-width: 40px;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.planner-recent-delete:hover:not(:disabled) {
+    border-color: #ef4444;
+    background: color-mix(in srgb, #ef4444 9%, var(--bg));
+    color: #ef4444;
+}
+
+.planner-recent-delete:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
 }
 
 .planner-recent-item:hover,

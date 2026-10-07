@@ -7,7 +7,7 @@ import { auth } from "@/lib/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { prepareChatImage } from "@/lib/prepareChatImage";
 
-const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
+const Chatbot = ({ isDark }) => {
     const [user, setUser] = useState(null);
     const [aiEnabled, setAiEnabled] = useState(true);
     const [isOpen, setIsOpen] = useState(false);
@@ -221,7 +221,6 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <Bot size={20} color="var(--primary-color)" />
                             <span style={{ fontWeight: 'bold' }}>NutriBot</span>
-                            {!isPremium && <span style={{ fontSize: '0.65em', background: 'var(--primary-color)', color: 'white', padding: '2px 8px', borderRadius: '12px' }}>{trialDaysLeft}d left</span>}
                         </div>
                         <div style={{ display: 'flex', gap: '10px' }}>
                             {user && <button onClick={handleClearChat} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer' }} title="Clear Chat"><Trash2 size={16} /></button>}

@@ -67,6 +67,32 @@ export async function GET(request) {
   }
 }
 
+export async function DELETE(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const uid = searchParams.get("uid")?.trim();
+    const planId = searchParams.get("planId")?.trim();
+    if (!uid || !planId) {
+      return NextResponse.json({ error: "Missing user ID or meal plan ID." }, { status: 400 });
+    }
+
+    const db = await initDb();
+    if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
+    const result = await db.User.updateOne(
+      { firebaseUID: uid, "recentMealPlans.id": planId },
+      { $pull: { recentMealPlans: { id: planId } } },
+    );
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ error: "Saved meal plan not found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[Meal Planner DELETE]", error.message);
+    return NextResponse.json({ error: "Could not delete the saved meal plan." }, { status: 500 });
+  }
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();

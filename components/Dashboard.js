@@ -4,7 +4,7 @@ import { Bot, Camera, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import "@/styles/Chatbot.css";
 
-const Chatbot = ({ user, isDark, trialDaysLeft, isPremium }) => {
+const Chatbot = ({ user, isDark }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([
         { text: "Hi! I'm NutriBot. Your personal nutrition assistant. What can I help you cook or plan today?", isBot: true }
@@ -119,7 +119,6 @@ const Chatbot = ({ user, isDark, trialDaysLeft, isPremium }) => {
                     <div className="chatbot-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <span>NutriBot</span>
-                            {!isPremium && <span style={{ fontSize: '0.7em', background: 'var(--accent)', color: 'white', padding: '2px 6px', borderRadius: '10px', marginLeft: '8px' }}>{trialDaysLeft} Days Trial</span>}
                         </div>
                         <button className="close-btn" onClick={() => setIsOpen(false)}><X size={16} /></button>
                     </div>
