@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { CalendarDays, Check, CircleAlert, DollarSign, LoaderCircle, Share2, ShoppingBasket, Sparkles, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, Check, CircleAlert, DollarSign, Download, LoaderCircle, Share2, ShoppingBasket, Sparkles, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { auth } from "@/lib/firebaseConfig";
+import { downloadMealPlanPdf } from "@/lib/mealPlanPdf";
 import "./meal-planner.css";
 
 const DIETARY_OPTIONS = ["No preference", "Vegetarian", "Vegan", "Pescatarian", "Gluten-free", "Dairy-free", "Low-carb"];
@@ -36,6 +37,7 @@ export default function MealPlannerPage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [isAddingGroceries, setIsAddingGroceries] = useState(false);
     const [isSharingPlan, setIsSharingPlan] = useState(false);
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
     const [groceriesAdded, setGroceriesAdded] = useState(false);
     const [appliedSwaps, setAppliedSwaps] = useState([]);
 
@@ -185,6 +187,23 @@ export default function MealPlannerPage() {
         }
     };
 
+    const downloadPlanPdf = async () => {
+        if (!plan) return;
+
+        setIsDownloadingPdf(true);
+        try {
+            const date = new Date(plan.generatedAt || Date.now());
+            const dateLabel = Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+            await downloadMealPlanPdf(plan, `smartmeal-plan-${dateLabel}.pdf`);
+            toast.success("Meal plan PDF downloaded.");
+        } catch (error) {
+            console.error("Meal plan PDF export failed:", error);
+            toast.error("Could not download the meal plan PDF. Please try again.");
+        } finally {
+            setIsDownloadingPdf(false);
+        }
+    };
+
     const applySubstitution = (dayIndex, mealIndex, swapIndex) => {
         setPlan((currentPlan) => {
             const nextPlan = structuredClone(currentPlan);
@@ -308,6 +327,10 @@ export default function MealPlannerPage() {
                                 <p>Nutrition and prices are estimates; actual values vary by ingredients, portions, and local prices.</p>
                             </div>
                             <div className="planner-result-actions">
+                                <button className="planner-grocery-button" onClick={downloadPlanPdf} disabled={isDownloadingPdf}>
+                                    {isDownloadingPdf ? <LoaderCircle className="planner-spinner" size={17} /> : <Download size={17} />}
+                                    {isDownloadingPdf ? "Creating PDF..." : "Download PDF"}
+                                </button>
                                 <button className="planner-grocery-button" onClick={shareWithFamily} disabled={isSharingPlan}>
                                     {isSharingPlan ? <LoaderCircle className="planner-spinner" size={17} /> : <Share2 size={17} />}
                                     {isSharingPlan ? "Sharing..." : "Share with family"}

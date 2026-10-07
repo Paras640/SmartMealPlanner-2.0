@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { toast } from 'sonner';
 import { Download, MessageCircle, Pencil, Save, Share2, Trash2, X } from 'lucide-react';
 import { auth } from '@/lib/firebaseConfig';
+import { downloadMealPlanPdf } from '@/lib/mealPlanPdf';
 import '@/components/Family.css';
 
 async function fetchFamilyInfo(uid) {
@@ -23,6 +24,7 @@ export default function FamilyPage() {
     const [inviteInput, setInviteInput] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [downloadingPlan, setDownloadingPlan] = useState(false);
     const [draftPlan, setDraftPlan] = useState(null);
     const [commentInput, setCommentInput] = useState('');
 
@@ -211,16 +213,21 @@ export default function FamilyPage() {
         }
     };
 
-    const handleDownloadPlan = () => {
+    const handleDownloadPlan = async () => {
         const plan = familyInfo?.sharedMealPlan;
         if (!plan) return;
-        const file = new Blob([JSON.stringify(plan, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(file);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'family-meal-plan.json';
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setDownloadingPlan(true);
+        try {
+            const date = new Date(plan.generatedAt || Date.now());
+            const dateLabel = Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+            await downloadMealPlanPdf(plan, `family-meal-plan-${dateLabel}.pdf`);
+            toast.success('Family meal plan PDF downloaded.');
+        } catch (error) {
+            console.error('Family meal plan PDF export failed:', error);
+            toast.error('Could not download the family meal plan PDF.');
+        } finally {
+            setDownloadingPlan(false);
+        }
     };
 
     const handleSharePlan = async () => {
@@ -365,8 +372,8 @@ export default function FamilyPage() {
                                                 <button className="family-btn secondary" onClick={() => setDraftPlan(structuredClone(familyInfo.sharedMealPlan))}>
                                                     <Pencil size={16} /> Edit plan
                                                 </button>
-                                                <button className="family-btn secondary" onClick={handleDownloadPlan}>
-                                                    <Download size={16} /> Download
+                                                <button className="family-btn secondary" onClick={handleDownloadPlan} disabled={downloadingPlan}>
+                                                    <Download size={16} /> {downloadingPlan ? 'Creating PDF...' : 'Download PDF'}
                                                 </button>
                                                 <button className="family-btn primary" onClick={handleSharePlan}>
                                                     <Share2 size={16} /> Share
