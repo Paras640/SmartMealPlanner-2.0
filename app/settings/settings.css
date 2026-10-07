@@ -2,6 +2,41 @@
     width: min(800px, 100%);
 }
 
+.settings-remove-favourite {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-card);
+    color: var(--text-main);
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.settings-remove-favourite:hover:not(:disabled) {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.settings-remove-favourite:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.settings-remove-favourite:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
 @media (max-width: 700px) {
     .settings-page {
         padding: 24px 14px !important;

@@ -20,6 +20,7 @@ export default function SettingsPage() {
 
     const [savingProfile, setSavingProfile] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [removingFavouriteId, setRemovingFavouriteId] = useState(null);
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -219,8 +220,9 @@ export default function SettingsPage() {
         if (!user?.uid) return;
 
         const recipeId = recipe.mealDbId || recipe.spoonacularId || recipe._id;
-        if (!recipeId) return;
+        if (!recipeId || removingFavouriteId) return;
 
+        setRemovingFavouriteId(String(recipeId));
         try {
             const res = await fetch(`/api/users/favourites?uid=${encodeURIComponent(user.uid)}&recipeId=${encodeURIComponent(recipeId)}`, {
                 method: 'DELETE',
@@ -233,7 +235,10 @@ export default function SettingsPage() {
             }));
             toast.success('Removed from favourites.');
         } catch (err) {
-            toast.error('Could not remove favourite.');
+            console.error('Could not remove favourite:', err);
+            toast.error(err.message || 'Could not remove favourite.');
+        } finally {
+            setRemovingFavouriteId(null);
         }
     };
 
@@ -374,14 +379,17 @@ export default function SettingsPage() {
                                 onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                             >
                                 <button
+                                    className="settings-remove-favourite"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleRemoveFavourite(recipe);
                                     }}
-                                    style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.95)', border: '1px solid var(--border)', borderRadius: '999px', cursor: 'pointer', padding: '6px 8px', fontSize: '0.8rem' }}
-                                    title="Remove favourite"
+                                    disabled={removingFavouriteId !== null}
+                                    aria-label={`Remove ${recipe.title || 'recipe'} from favourites`}
+                                    title="Remove from favourites"
                                 >
-                                    ×
+                                    <Trash2 size={15} />
+                                    {removingFavouriteId === String(recipe.mealDbId || recipe.spoonacularId || recipe._id) ? 'Removing...' : 'Remove'}
                                 </button>
                                 <div style={{ height: '120px', background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <span style={{ fontSize: '2rem' }}>🍲</span>
