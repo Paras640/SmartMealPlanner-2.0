@@ -39,7 +39,6 @@ const SYSTEM_PROMPT = [
   "Before returning the plan, check every recipe and shopping-list ingredient against each listed allergy.",
   "Do not make medical claims or promise exact nutrition or prices. Respect the requested diet, servings, budget, pantry, and calorie target as closely as practical.",
   "Never include beef, veal, oxtail, or ingredients derived from beef in recipes, substitutions, or the grocery list.",
-  "When a cuisine country is provided, make the meals reflect that country's cuisine where practical.",
   "Use pantry items first to reduce waste. For meals without a known exact nutrition value, provide reasonable estimates.",
 ].join(" ");
 
@@ -78,7 +77,6 @@ export async function POST(request) {
     const dietaryPreference = typeof body.dietaryPreference === "string"
       ? body.dietaryPreference.trim().slice(0, 60)
       : "No preference";
-    const cookingCountry = typeof body.cookingCountry === "string" ? body.cookingCountry.trim().slice(0, 80) : "";
     const currency = CURRENCIES.has(body.currency) ? body.currency : "USD";
     const servings = Number(body.servings);
     const calorieTarget = body.calorieTarget ? Number(body.calorieTarget) : null;
@@ -109,7 +107,6 @@ export async function POST(request) {
     const requestDetails = JSON.stringify({
       pantry,
       dietaryPreference,
-      cookingCountry,
       allergies,
       servings,
       currency,

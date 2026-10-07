@@ -2,13 +2,11 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import CountrySelect from '@/components/CountrySelect';
 
 export default function OnboardingModal({ user, onComplete }) {
     const [step, setStep] = useState(1);
     const [preferences, setPreferences] = useState({
         dietaryType: 'All',
-        country: '',
         goal: 'Healthy',
         measurements: {
             height: '',
@@ -61,14 +59,6 @@ export default function OnboardingModal({ user, onComplete }) {
                 {step === 1 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div>
-                            <CountrySelect
-                                id="home-country"
-                                label="Your home country"
-                                value={preferences.country}
-                                onChange={(country) => setPreferences((current) => ({ ...current, country }))}
-                            />
-                        </div>
-                        <div>
                             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Dietary Preference</label>
                             <select 
                                 value={preferences.dietaryType}
@@ -96,7 +86,6 @@ export default function OnboardingModal({ user, onComplete }) {
                         </div>
                         <button 
                             onClick={() => setStep(2)}
-                            disabled={!preferences.country}
                             style={{ padding: '12px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' }}
                         >
                             Next Step
@@ -158,7 +147,7 @@ export default function OnboardingModal({ user, onComplete }) {
                             </button>
                             <button 
                                 onClick={handleSave}
-                                disabled={saving || !preferences.country}
+                                disabled={saving}
                                 style={{ flex: 2, padding: '12px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}
                             >
                                 {saving ? "Saving..." : "Complete Profile"}

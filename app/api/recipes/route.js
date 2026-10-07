@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { initDb } from "@/lib/models";
 import { fetchMealDbSearch } from "@/lib/recipeSearch";
 import { isRecipeAllowedForDiet } from "@/lib/recipeDietaryFilter";
-import { fetchMealDbCountries, fetchMealDbMealsByCountry } from "@/lib/mealDbCountries";
 
 /**
  * Universal multi-stage recipe search using TheMealDB:
@@ -25,25 +24,9 @@ async function fetchWithFallback(query) {
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    if (searchParams.get("countries") === "1") {
-      return NextResponse.json({ countries: await fetchMealDbCountries() });
-    }
-
     const query = searchParams.has("query") ? searchParams.get("query") || "" : "vegetarian";
     const dietaryPreference = searchParams.get("diet") || "All";
-    const country = searchParams.get("country")?.trim() || "";
-
-    let meals;
-    let matchedBy = "universal-search";
-    if (country) {
-      meals = await fetchMealDbMealsByCountry(country, query.trim());
-      if (meals === null) {
-        return NextResponse.json({ error: "Choose a country from the available list." }, { status: 400 });
-      }
-      matchedBy = "country";
-    } else {
-      ({ meals, matchedBy } = await fetchWithFallback(query.trim() || "vegetarian"));
-    }
+    const { meals, matchedBy } = await fetchWithFallback(query.trim() || "vegetarian");
 
     const details = await Promise.allSettled(meals.slice(0, 60).map(fetchFullMealDetails));
     const candidateMeals = details.flatMap((result) => {

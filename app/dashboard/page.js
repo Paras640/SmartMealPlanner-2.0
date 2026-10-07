@@ -20,10 +20,10 @@ export default function DashboardPage() {
     const fetchPersonalizedRecipes = useCallback(async (profileData) => {
         setLoadingRecipes(true);
         try {
-            let query = profileData.country ? '' : 'Seafood';
-            if (profileData.dietaryType === 'Veg' || profileData.dietaryType === 'Vegan') query = profileData.country ? '' : 'Vegetarian';
+            const diet = profileData.dietaryType || profileData.mealPreference || 'All';
+            let query = diet === 'Vegan' ? 'Vegan' : diet === 'Non-Veg' || diet === 'Keto' || diet === 'Low-Carb' ? 'Seafood' : 'Vegetarian';
 
-            if (!profileData.country && profileData.healthConditions && profileData.healthConditions.length > 0) {
+            if (profileData.healthConditions && profileData.healthConditions.length > 0) {
                 if (profileData.healthConditions.includes('hypertension')) {
                     query = 'healthy ' + query;
                 } else if (profileData.healthConditions.includes('diabetic')) {
@@ -31,9 +31,7 @@ export default function DashboardPage() {
                 }
             }
 
-            const diet = profileData.dietaryType || profileData.mealPreference || 'All';
-            const countryParam = profileData.country ? `&country=${encodeURIComponent(profileData.country)}` : '';
-            const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}&diet=${encodeURIComponent(diet)}${countryParam}`);
+            const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}&diet=${encodeURIComponent(diet)}`);
             const data = await res.json();
 
             if (data.recipes) {

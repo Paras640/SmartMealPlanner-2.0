@@ -15,15 +15,13 @@ export default function SmartMealPlanner() {
   const [loadingRandom, setLoadingRandom] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
   const [dietaryPreference, setDietaryPreference] = useState("Veg");
-  const [homeCountry, setHomeCountry] = useState("");
 
-  const fetchRecipes = useCallback(async (searchQuery, diet = dietaryPreference, country = homeCountry) => {
-    if (!searchQuery?.trim() && !country) return;
+  const fetchRecipes = useCallback(async (searchQuery, diet = dietaryPreference) => {
+    if (!searchQuery?.trim()) return;
     setLoading(true);
     setError(null);
     try {
-      const countryParam = country ? `&country=${encodeURIComponent(country)}` : "";
-      const res = await fetch(`/api/recipes?query=${encodeURIComponent(searchQuery)}&diet=${encodeURIComponent(diet)}${countryParam}`);
+      const res = await fetch(`/api/recipes?query=${encodeURIComponent(searchQuery)}&diet=${encodeURIComponent(diet)}`);
       if (!res.ok) throw new Error(`Server error (${res.status})`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
@@ -34,14 +32,13 @@ export default function SmartMealPlanner() {
     } finally {
       setLoading(false);
     }
-  }, [dietaryPreference, homeCountry]);
+  }, [dietaryPreference]);
 
-  const fetchRandomRecipe = useCallback(async (diet, country = homeCountry) => {
+  const fetchRandomRecipe = useCallback(async (diet) => {
     setLoadingRandom(true);
     try {
-      const query = country ? "" : diet === "Vegan" ? "Vegan" : "Vegetarian";
-      const countryParam = country ? `&country=${encodeURIComponent(country)}` : "";
-      const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}&diet=${encodeURIComponent(diet)}${countryParam}`);
+      const query = diet === "Vegan" ? "Vegan" : "Vegetarian";
+      const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}&diet=${encodeURIComponent(diet)}`);
       const data = await res.json();
       const recipes = data.recipes || [];
       if (recipes.length) {
@@ -62,7 +59,7 @@ export default function SmartMealPlanner() {
     } finally {
       setLoadingRandom(false);
     }
-  }, [homeCountry]);
+  }, []);
 
   useEffect(() => {
     const refreshUserProfile = async (firebaseUser) => {
@@ -80,13 +77,11 @@ export default function SmartMealPlanner() {
           const profile = await res.json();
           setAiEnabled(profile.isAIEnabled !== false);
           const diet = profile.dietaryType || profile.mealPreference || "Veg";
-          const country = profile.country || "";
-          setHomeCountry(country);
           setDietaryPreference(diet);
-          let targetQuery = country ? "" : diet === "Vegan" ? "Vegan" : diet === "Non-Veg" || diet === "Keto" || diet === "Low-Carb" ? "Seafood" : "Vegetarian";
+          let targetQuery = diet === "Vegan" ? "Vegan" : diet === "Non-Veg" || diet === "Keto" || diet === "Low-Carb" ? "Seafood" : "Vegetarian";
           
           // Consider health conditions
-          if (!country && profile.healthConditions && profile.healthConditions.length > 0) {
+          if (profile.healthConditions && profile.healthConditions.length > 0) {
             if (profile.healthConditions.includes("hypertension")) {
               targetQuery = "healthy " + targetQuery; // "healthy" will trigger better search matches for hypertension
             } else if (profile.healthConditions.includes("diabetic")) {
@@ -95,8 +90,8 @@ export default function SmartMealPlanner() {
           }
           
           setQuery(targetQuery);
-          fetchRecipes(targetQuery, diet, country);
-          fetchRandomRecipe(diet, country);
+          fetchRecipes(targetQuery, diet);
+          fetchRandomRecipe(diet);
         } else {
           setAiEnabled(true);
           setDietaryPreference("Veg");

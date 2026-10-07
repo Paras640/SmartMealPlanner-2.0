@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
 import { toast } from "sonner";
-import CountrySelect from "@/components/CountrySelect";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -14,7 +13,6 @@ export default function OnboardingPage() {
   
   const [preferences, setPreferences] = useState({
     dietaryType: "Veg",
-    country: "",
     goal: "Healthy",
     allergies: [],
     healthConditions: []
@@ -76,16 +74,6 @@ export default function OnboardingPage() {
         <p style={{ color: "var(--text-muted)", marginBottom: "30px" }}>Tell us a bit about your eating habits so we can recommend the best recipes.</p>
 
         <form onSubmit={handleSave} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-          <div>
-            <CountrySelect
-              id="home-country"
-              label="Your home country"
-              value={preferences.country}
-              onChange={(country) => setPreferences((current) => ({ ...current, country }))}
-            />
-            <p style={{ color: "var(--text-muted)", fontSize: "0.88rem", margin: "8px 0 0" }}>We&apos;ll use this to tailor recipe suggestions. You can browse another country&apos;s recipes any time.</p>
-          </div>
-          
           <div>
             <label style={{ display: "block", fontWeight: "700", marginBottom: "8px" }}>Primary Diet</label>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>

@@ -5,7 +5,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import { CalendarDays, Check, CircleAlert, DollarSign, LoaderCircle, Share2, ShoppingBasket, Sparkles, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { auth } from "@/lib/firebaseConfig";
-import CountrySelect from "@/components/CountrySelect";
 import "./meal-planner.css";
 
 const DIETARY_OPTIONS = ["No preference", "Vegetarian", "Vegan", "Pescatarian", "Gluten-free", "Dairy-free", "Low-carb"];
@@ -28,8 +27,6 @@ export default function MealPlannerPage() {
     const [pantryInput, setPantryInput] = useState("");
     const [allergyInput, setAllergyInput] = useState("");
     const [dietaryPreference, setDietaryPreference] = useState("No preference");
-    const [homeCountry, setHomeCountry] = useState("");
-    const [cookingCountry, setCookingCountry] = useState("");
     const [servings, setServings] = useState("2");
     const [calorieTarget, setCalorieTarget] = useState("");
     const [budget, setBudget] = useState("");
@@ -54,8 +51,6 @@ export default function MealPlannerPage() {
                 ]);
                 if (profileResponse.ok) {
                     const profile = await profileResponse.json();
-                    setHomeCountry(profile.country || "");
-                    setCookingCountry(profile.country || "");
                     setDietaryPreference(profile.dietaryType === "Veg" ? "Vegetarian" : profile.dietaryType === "Vegan" ? "Vegan" : "No preference");
                     setAllergyInput(Array.isArray(profile.allergies) ? profile.allergies.join(", ") : "");
                     setCalorieTarget(profile.measurements?.dailyCalorieGoal ? String(profile.measurements.dailyCalorieGoal) : "");
@@ -102,7 +97,6 @@ export default function MealPlannerPage() {
                     calorieTarget: calorieTarget ? Number(calorieTarget) : null,
                     budget: budget ? Number(budget) : null,
                     currency,
-                    cookingCountry,
                 }),
             });
             const data = await response.json();
@@ -240,17 +234,6 @@ export default function MealPlannerPage() {
                     </label>
 
                     <div className="planner-field-grid">
-                        <div className="planner-field">
-                            <CountrySelect
-                                id="plan-country"
-                                label="Plan recipes from"
-                                value={cookingCountry}
-                                onChange={setCookingCountry}
-                            />
-                            {homeCountry && cookingCountry !== homeCountry && (
-                                <small>Your saved home country stays {homeCountry}; this only changes this meal plan.</small>
-                            )}
-                        </div>
                         <label className="planner-field">
                             <span>Eating style</span>
                             <select value={dietaryPreference} onChange={(event) => setDietaryPreference(event.target.value)}>

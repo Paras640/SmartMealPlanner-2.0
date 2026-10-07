@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebaseConfig';
-import CountrySelect from '@/components/CountrySelect';
 import '@/components/Product.css'; // Optional custom styles
 
 function defaultQueryForDiet(diet) {
@@ -21,19 +20,16 @@ export default function ProductsPage() {
     const [fetchSource, setFetchSource] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
     const [dietaryPreference, setDietaryPreference] = useState('All');
-    const [homeCountry, setHomeCountry] = useState('');
-    const [cookingCountry, setCookingCountry] = useState('');
     const [preferenceLoaded, setPreferenceLoaded] = useState(false);
     const [preferenceError, setPreferenceError] = useState(false);
 
-    const loadRecipes = useCallback(async (query, diet, country) => {
+    const loadRecipes = useCallback(async (query, diet) => {
         try {
             setLoading(true);
             setRecipes([]);
             setFetchSource('');
 
-            const countryParam = country ? `&country=${encodeURIComponent(country)}` : '';
-            const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}&diet=${encodeURIComponent(diet)}${countryParam}`);
+            const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}&diet=${encodeURIComponent(diet)}`);
             if (!res.ok) {
                 const errData = await res.text();
                 throw new Error(errData || `HTTP ${res.status}`);
@@ -65,8 +61,6 @@ export default function ProductsPage() {
                 if (!response.ok) throw new Error('Could not load your saved dietary preference.');
                 const profile = await response.json();
                 setDietaryPreference(profile.dietaryType || profile.mealPreference || 'All');
-                setHomeCountry(profile.country || '');
-                setCookingCountry(profile.country || '');
             } catch (error) {
                 console.error('Could not load recipe dietary preference:', error);
                 setFetchSource('Could not load your dietary preference. Recipes were not shown.');
@@ -83,17 +77,17 @@ export default function ProductsPage() {
     useEffect(() => {
         if (!preferenceLoaded || preferenceError) return;
         const delayDebounceFn = setTimeout(() => {
-            const query = searchTerm.trim() || (cookingCountry ? '' : defaultQueryForDiet(dietaryPreference));
-            loadRecipes(query, dietaryPreference, cookingCountry);
+            const query = searchTerm.trim() || defaultQueryForDiet(dietaryPreference);
+            loadRecipes(query, dietaryPreference);
         }, 350);
 
         return () => clearTimeout(delayDebounceFn);
-    }, [searchTerm, dietaryPreference, cookingCountry, preferenceLoaded, preferenceError, loadRecipes]);
+    }, [searchTerm, dietaryPreference, preferenceLoaded, preferenceError, loadRecipes]);
 
     const handleSearch = async (event) => {
         event.preventDefault();
-        const query = searchTerm.trim() || (cookingCountry ? '' : defaultQueryForDiet(dietaryPreference));
-        await loadRecipes(query, dietaryPreference, cookingCountry);
+        const query = searchTerm.trim() || defaultQueryForDiet(dietaryPreference);
+        await loadRecipes(query, dietaryPreference);
     };
 
     return (
@@ -102,11 +96,8 @@ export default function ProductsPage() {
                 <div style={{ textAlign: 'center', marginBottom: '40px' }}>
                     <h2 style={{ fontSize: '2.5rem', fontWeight: '800', marginBottom: '10px' }}>Explore Recipes</h2>
                     <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
-                        Browse {cookingCountry ? `recipes from ${cookingCountry}` : 'global recipes'} tailored to your {dietaryPreference === 'All' ? 'dietary preferences' : `${dietaryPreference} preference`}.
+                        Browse global recipes tailored to your {dietaryPreference === 'All' ? 'dietary preferences' : `${dietaryPreference} preference`}.
                     </p>
-                    {homeCountry && cookingCountry !== homeCountry && (
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '6px' }}>Your home country remains {homeCountry}; this only changes recipes shown here.</p>
-                    )}
                     {fetchSource && (
                         <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'var(--bg-hover)', padding: '6px 16px', borderRadius: '20px', display: 'inline-block', marginTop: '12px', fontWeight: '600' }}>
                             {fetchSource}
@@ -115,15 +106,6 @@ export default function ProductsPage() {
                 </div>
 
                 <form onSubmit={handleSearch} style={{ display: 'flex', justifyContent: 'center', marginBottom: '40px', gap: '10px', flexWrap: 'wrap' }}>
-                    <div style={{ width: '100%', maxWidth: '560px' }}>
-                        <CountrySelect
-                            id="cooking-country"
-                            label="Browse recipes from"
-                            value={cookingCountry}
-                            onChange={setCookingCountry}
-                            allowAny
-                        />
-                    </div>
                     <input
                         type="text"
                         value={searchTerm}
