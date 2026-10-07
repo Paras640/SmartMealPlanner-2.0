@@ -189,6 +189,39 @@
     margin: 1.25rem 0;
 }
 
+.family-plan-collapse-button {
+    display: flex;
+    width: 100%;
+    min-height: 46px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 14px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+    color: var(--text-main);
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.family-plan-collapse-button svg {
+    flex: 0 0 auto;
+    transition: transform 0.18s;
+}
+
+.family-plan-collapse-button[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+.family-plan-collapse-button:focus-visible {
+    outline: 2px solid var(--primary-color, #6dba5f);
+    outline-offset: 2px;
+}
+
 .family-plan-overview {
     display: flex;
     align-items: center;

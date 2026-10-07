@@ -86,7 +86,21 @@ export async function DELETE(request) {
       return NextResponse.json({ error: "Saved meal plan not found." }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true });
+    const familyPlanUpdates = await Promise.all([
+      db.FamilySync.updateMany(
+        { "members.firebaseUID": uid, "sharedMealPlan.id": planId },
+        { $unset: { sharedMealPlan: "" }, $set: { mealPlanComments: [] } },
+      ),
+      db.FamilySync.updateMany(
+        { "members.firebaseUID": uid, "recentSharedMealPlans.id": planId },
+        { $pull: { recentSharedMealPlans: { id: planId } } },
+      ),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      removedFromFamilySync: familyPlanUpdates.some((update) => update.modifiedCount > 0),
+    });
   } catch (error) {
     console.error("[Meal Planner DELETE]", error.message);
     return NextResponse.json({ error: "Could not delete the saved meal plan." }, { status: 500 });

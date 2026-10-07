@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { toast } from 'sonner';
-import { Download, MessageCircle, Pencil, Save, Share2, Trash2, X } from 'lucide-react';
+import { ChevronDown, Download, MessageCircle, Pencil, Save, Share2, Trash2, X } from 'lucide-react';
 import { auth } from '@/lib/firebaseConfig';
 import { downloadMealPlanPdf } from '@/lib/mealPlanPdf';
 import '@/components/Family.css';
@@ -26,6 +26,7 @@ export default function FamilyPage() {
     const [saving, setSaving] = useState(false);
     const [downloadingPlan, setDownloadingPlan] = useState(false);
     const [draftPlan, setDraftPlan] = useState(null);
+    const [isSharedPlanExpanded, setIsSharedPlanExpanded] = useState(false);
     const [commentInput, setCommentInput] = useState('');
 
     useEffect(() => {
@@ -369,7 +370,10 @@ export default function FamilyPage() {
                                             </>
                                         ) : (
                                             <>
-                                                <button className="family-btn secondary" onClick={() => setDraftPlan(structuredClone(familyInfo.sharedMealPlan))}>
+                                                <button className="family-btn secondary" onClick={() => {
+                                                    setDraftPlan(structuredClone(familyInfo.sharedMealPlan));
+                                                    setIsSharedPlanExpanded(true);
+                                                }}>
                                                     <Pencil size={16} /> Edit plan
                                                 </button>
                                                 <button className="family-btn secondary" onClick={handleDownloadPlan} disabled={downloadingPlan}>
@@ -387,6 +391,17 @@ export default function FamilyPage() {
                             {familyInfo.sharedMealPlan ? (
                                 <>
                                     <p className="family-plan-collaboration-note">Everyone in the family can edit this plan and leave comments.</p>
+                                    <button
+                                        className="family-plan-collapse-button"
+                                        type="button"
+                                        aria-expanded={isSharedPlanExpanded}
+                                        aria-controls="family-shared-plan-details"
+                                        onClick={() => setIsSharedPlanExpanded((expanded) => !expanded)}
+                                    >
+                                        <span>{isSharedPlanExpanded ? 'Hide meal plan details' : 'Show meal plan details'}</span>
+                                        <ChevronDown size={18} aria-hidden="true" />
+                                    </button>
+                                    <div id="family-shared-plan-details" hidden={!isSharedPlanExpanded}>
                                     <div className="family-plan-overview">
                                         <div>
                                             <span className="family-plan-eyebrow">WEEK AT A GLANCE</span>
@@ -518,6 +533,7 @@ export default function FamilyPage() {
                                             )}
                                         </div>
                                     )}
+                                    </div>
                                     <section className="family-plan-comments">
                                         <h3><MessageCircle size={18} /> Family comments</h3>
                                         <form onSubmit={handleAddPlanComment}>

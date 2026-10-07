@@ -285,6 +285,39 @@
     font-size: 0.84rem;
 }
 
+.planner-collapse-button {
+    display: flex;
+    width: 100%;
+    min-height: 46px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 0 16px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--bg-card);
+    color: var(--text);
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.planner-collapse-button svg {
+    flex: 0 0 auto;
+    transition: transform 0.18s;
+}
+
+.planner-collapse-button[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+.planner-collapse-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
 .planner-budget-alert,
 .planner-budget-good {
     display: flex;

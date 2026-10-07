@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { CalendarDays, Check, CircleAlert, DollarSign, Download, LoaderCircle, Share2, ShoppingBasket, Sparkles, Trash2, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, CircleAlert, DollarSign, Download, LoaderCircle, Share2, ShoppingBasket, Sparkles, Trash2, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { auth } from "@/lib/firebaseConfig";
 import { downloadMealPlanPdf } from "@/lib/mealPlanPdf";
@@ -33,6 +33,7 @@ export default function MealPlannerPage() {
     const [budget, setBudget] = useState("");
     const [currency, setCurrency] = useState("USD");
     const [plan, setPlan] = useState(null);
+    const [isPlanExpanded, setIsPlanExpanded] = useState(true);
     const [recentPlans, setRecentPlans] = useState([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [deletingPlanId, setDeletingPlanId] = useState(null);
@@ -84,6 +85,7 @@ export default function MealPlannerPage() {
 
         setIsGenerating(true);
         setPlan(null);
+        setIsPlanExpanded(true);
         setGroceriesAdded(false);
         setAppliedSwaps([]);
         try {
@@ -224,7 +226,9 @@ export default function MealPlannerPage() {
                 setGroceriesAdded(false);
                 setAppliedSwaps([]);
             }
-            toast.success("Meal plan deleted from your recent plans.");
+            toast.success(data.removedFromFamilySync
+                ? "Meal plan deleted from your recent plans and Family Sync."
+                : "Meal plan deleted from your recent plans.");
         } catch (error) {
             console.error("Could not delete saved meal plan:", error);
             toast.error(error.message || "Could not delete the saved meal plan.");
@@ -337,6 +341,7 @@ export default function MealPlannerPage() {
                                         type="button"
                                         onClick={() => {
                                             setPlan(recentPlan);
+                                            setIsPlanExpanded(true);
                                             setCurrency(recentPlan.currency || "USD");
                                             setGroceriesAdded(false);
                                             setAppliedSwaps([]);
@@ -387,6 +392,18 @@ export default function MealPlannerPage() {
                             </div>
                         </div>
 
+                        <button
+                            className="planner-collapse-button"
+                            type="button"
+                            aria-expanded={isPlanExpanded}
+                            aria-controls="meal-plan-details"
+                            onClick={() => setIsPlanExpanded((expanded) => !expanded)}
+                        >
+                            <span>{isPlanExpanded ? "Hide meal plan details" : "Show meal plan details"}</span>
+                            <ChevronDown size={18} aria-hidden="true" />
+                        </button>
+
+                        <div id="meal-plan-details" hidden={!isPlanExpanded}>
                         {budget && weeklyCost > Number(budget) && (
                             <div className="planner-budget-alert"><CircleAlert size={18} /> Estimated groceries ({formatAmount(weeklyCost, currency)}) may exceed your {formatAmount(Number(budget), currency)} budget.</div>
                         )}
@@ -504,6 +521,7 @@ export default function MealPlannerPage() {
                                 <p className="planner-shopping-empty">Your pantry already covers the ingredients in this plan.</p>
                             )}
                         </section>
+                        </div>
                     </section>
                 )}
             </div>
