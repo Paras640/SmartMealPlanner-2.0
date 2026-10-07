@@ -309,15 +309,9 @@
 }
 
 .chat-page-message-bot {
-    border: 1px solid #e5e7eb;
-    background: #f3f4f6;
-    color: #111827;
-}
-
-[data-theme="dark"] .chat-page-message-bot {
-    border-color: #3b3b3b;
-    background: #252525;
-    color: #f5f5f5;
+    border: 1px solid var(--border);
+    background: var(--bg-hover);
+    color: var(--text);
 }
 
 @keyframes model-picker-enter {

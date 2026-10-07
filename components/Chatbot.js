@@ -254,11 +254,11 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                         {messages.map((msg, idx) => (
                             <div key={idx} className={`message ${msg.isBot ? "bot-message" : "user-message"}`} style={{
                                 background: msg.isBot
-                                    ? (isDark ? 'rgba(38,38,38,0.96)' : 'rgba(255,255,255,0.92)')
+                                    ? 'var(--bg-hover)'
                                     : 'linear-gradient(135deg, var(--primary-color), var(--primary-hover))',
                                 backdropFilter: msg.isBot ? 'blur(10px)' : 'none',
                                 border: msg.isBot
-                                    ? (isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.8)')
+                                    ? '1px solid var(--border)'
                                     : 'none',
                                 color: msg.isBot ? 'var(--text-main)' : 'white',
                                 borderRadius: msg.isBot ? '18px 18px 18px 4px' : '18px 18px 4px 18px',
