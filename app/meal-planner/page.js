@@ -349,6 +349,13 @@ export default function MealPlannerPage() {
                             <div className="planner-budget-good"><Check size={18} /> Estimated grocery cost fits your {formatAmount(Number(budget), currency)} budget.</div>
                         )}
 
+                        <div className="planner-week-heading">
+                            <div>
+                                <h3>Your daily schedule</h3>
+                                <p>Meals are grouped by day, with ingredients and cooking steps under each recipe.</p>
+                            </div>
+                            <span>{plan.days.length} days · {meals.length} meals</span>
+                        </div>
                         <div className="planner-week-grid">
                             {plan.days.map((day, dayIndex) => {
                                 const dayNutrition = day.meals.reduce((total, meal) => ({
@@ -375,7 +382,7 @@ export default function MealPlannerPage() {
                                             </div>
                                         )}
                                         {day.meals.map((meal, mealIndex) => (
-                                            <div className="planner-meal" key={`${day.day}-${meal.type}-${meal.name}`}>
+                                            <article className="planner-meal" key={`${day.day}-${meal.type}-${meal.name}`}>
                                                 <span className="planner-meal-type"><UtensilsCrossed size={13} /> {meal.type}</span>
                                                 <h4>{meal.name}</h4>
                                                 <p>{meal.description}</p>
@@ -387,11 +394,21 @@ export default function MealPlannerPage() {
                                                 {meal.usesPantry?.length > 0 && (
                                                     <p className="planner-pantry-match">Uses your ingredients: {meal.usesPantry.join(", ")}</p>
                                                 )}
-                                                <details>
-                                                    <summary>Ingredients &amp; cooking</summary>
-                                                    <ul>{meal.ingredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>{ingredient.quantity} {ingredient.name}</li>)}</ul>
-                                                    <ol>{meal.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
-                                                </details>
+                                                <div className="planner-recipe-details">
+                                                    <section className="planner-recipe-section">
+                                                        <h5>Ingredients <span>{meal.ingredients.length}</span></h5>
+                                                        <ul>{meal.ingredients.map((ingredient, index) => (
+                                                            <li key={`${ingredient.name}-${index}`}>
+                                                                <span>{ingredient.name}</span>
+                                                                <span>{ingredient.quantity}</span>
+                                                            </li>
+                                                        ))}</ul>
+                                                    </section>
+                                                    <section className="planner-recipe-section">
+                                                        <h5>Cooking steps</h5>
+                                                        <ol>{meal.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
+                                                    </section>
+                                                </div>
                                                 {meal.substitutions?.length > 0 && (
                                                     <div className="planner-substitutions">
                                                         <strong>Swap idea{meal.substitutions.length > 1 ? "s" : ""}</strong>
@@ -415,7 +432,7 @@ export default function MealPlannerPage() {
                                                         })}
                                                     </div>
                                                 )}
-                                            </div>
+                                            </article>
                                         ))}
                                     </article>
                                 );
@@ -423,14 +440,23 @@ export default function MealPlannerPage() {
                         </div>
 
                         <section className="planner-shopping-list">
-                            <div>
+                            <div className="planner-shopping-heading">
                                 <span className="meal-planner-eyebrow"><ShoppingBasket size={15} /> SHOPPING LIST</span>
-                                <h3>What you’ll need to pick up</h3>
+                                <h3>Weekly ingredients to pick up</h3>
+                                <p>Your consolidated list for all {plan.days.length} days.</p>
                             </div>
                             {plan.groceryList.length ? (
-                                <ul>{plan.groceryList.map((item, index) => <li key={`${item.name}-${index}`}><span>{item.name}</span><span>{item.quantity}</span></li>)}</ul>
+                                <>
+                                    <span className="planner-shopping-count">{plan.groceryList.length} items</span>
+                                    <ul>{plan.groceryList.map((item, index) => (
+                                        <li key={`${item.name}-${index}`}>
+                                            <span>{item.name}</span>
+                                            <strong>{item.quantity}</strong>
+                                        </li>
+                                    ))}</ul>
+                                </>
                             ) : (
-                                <p>Your pantry already covers the ingredients in this plan.</p>
+                                <p className="planner-shopping-empty">Your pantry already covers the ingredients in this plan.</p>
                             )}
                         </section>
                     </section>
