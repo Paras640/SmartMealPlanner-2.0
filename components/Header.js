@@ -11,6 +11,7 @@ import './Header.css';
 const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/products', label: 'Recipes' },
+    { href: '/meal-planner', label: 'Meal Planner' },
     { href: '/community', label: 'Community' },
     { href: '/chat', label: 'NutriBot' },
     { href: '/about', label: 'About' },
@@ -74,7 +75,7 @@ const Header = () => {
             </Link>
 
             <nav className="nav-links">
-                {navLinks.filter(l => l.label !== 'About').map((link) => (
+                {navLinks.filter(l => l.label !== 'About' && (l.href !== '/meal-planner' || user)).map((link) => (
                     <Link key={link.href} href={link.href} className={`nav-link ${isActive(link.href)}`}>
                         {link.label}
                     </Link>
@@ -93,7 +94,7 @@ const Header = () => {
 
             {mobileMenuOpen && (
                 <div className="mobile-nav-panel">
-                    {navLinks.filter(l => l.label !== 'About').map((link) => (
+                    {navLinks.filter(l => l.label !== 'About' && (l.href !== '/meal-planner' || user)).map((link) => (
                         <Link key={link.href} href={link.href} className={`mobile-nav-link ${isActive(link.href)}`} onClick={() => setMobileMenuOpen(false)}>
                             {link.label}
                         </Link>
