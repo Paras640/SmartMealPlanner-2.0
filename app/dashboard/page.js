@@ -222,6 +222,58 @@ export default function DashboardPage() {
                     Family Sync
                 </h2>
 
+                {familyInfo && familyInfo.members && familyInfo.members.length > 0 && (
+                    <div style={{ marginBottom: '30px' }}>
+                        <h3 style={{ marginBottom: '15px', fontSize: '1.4rem' }}>Family Activity & Preferences</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                            {familyInfo.members.map(member => (
+                                <div key={member.firebaseUID} style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                    <h4 style={{ margin: '0 0 15px 0', fontSize: '1.2rem', color: 'var(--primary-color)' }}>
+                                        {member.name || member.email} {member.firebaseUID === user.uid && "(You)"}
+                                    </h4>
+                                    
+                                    {member.preferences && (
+                                        <div style={{ marginBottom: '15px', fontSize: '0.95rem', background: 'var(--bg-main)', padding: '10px', borderRadius: '8px' }}>
+                                            <div style={{ marginBottom: '5px' }}><strong>Dietary:</strong> {member.preferences.dietaryType || 'Any'}</div>
+                                            <div style={{ marginBottom: '5px' }}><strong>Goal:</strong> {member.preferences.goal || 'General'}</div>
+                                            {member.preferences.allergies?.length > 0 && (
+                                                <div style={{ color: '#ef4444' }}><strong>Avoids:</strong> {member.preferences.allergies.join(', ')}</div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <strong style={{ display: 'block', marginBottom: '10px', fontSize: '0.95rem' }}>Liked Recipes:</strong>
+                                        {member.likedRecipes && member.likedRecipes.length > 0 ? (
+                                            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px', scrollbarWidth: 'thin' }}>
+                                                {member.likedRecipes.map(recipe => (
+                                                    <div 
+                                                        key={recipe._id} 
+                                                        onClick={() => router.push(recipe.mealDbId ? `/recipe/${recipe.mealDbId}` : `/recipe/custom/${recipe._id}`)}
+                                                        style={{ minWidth: '80px', cursor: 'pointer', textAlign: 'center' }}
+                                                        title={recipe.title}
+                                                    >
+                                                        <img 
+                                                            src={recipe.imageURL || 'https://via.placeholder.com/150'} 
+                                                            alt={recipe.title} 
+                                                            style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', marginBottom: '5px', boxShadow: 'var(--shadow)' }} 
+                                                        />
+                                                        <div style={{ fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '80px', color: 'var(--text-main)' }}>
+                                                            {recipe.title}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', margin: 0 }}>No favorites yet.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {invites.length > 0 && (
                     <div style={{ marginBottom: '20px', padding: '15px', background: 'var(--bg-card)', borderRadius: '12px', border: '2px solid var(--primary-color)' }}>
                         <h3 style={{ marginBottom: '10px', color: 'var(--primary-color)' }}>Pending Invitations</h3>

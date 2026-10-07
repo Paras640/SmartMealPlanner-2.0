@@ -16,6 +16,31 @@ export async function GET(request) {
     if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
 
     const family = await db.FamilySync.findOne({ "members.firebaseUID": uid }).lean();
+    
+    if (family) {
+      const memberUids = family.members.map(m => m.firebaseUID);
+      const users = await db.User.find({ firebaseUID: { $in: memberUids } }).lean();
+      const recipes = await db.Recipe.find({ likes: { $in: memberUids } }).lean();
+
+      family.members = family.members.map(m => {
+        const userDetails = users.find(u => u.firebaseUID === m.firebaseUID);
+        const likedRecipes = recipes
+          .filter(r => r.likes && r.likes.includes(m.firebaseUID))
+          .map(r => ({ _id: r._id, title: r.title || r.strMeal, imageURL: r.imageURL || r.strMealThumb, mealDbId: r.mealDbId }));
+        
+        return {
+          ...m,
+          preferences: userDetails ? { 
+            dietaryType: userDetails.dietaryType, 
+            allergies: userDetails.allergies, 
+            goal: userDetails.goal, 
+            mealPreference: userDetails.mealPreference 
+          } : {},
+          likedRecipes
+        };
+      });
+    }
+    
     return NextResponse.json(family || null);
   } catch (err) {
     console.error("[Family GET]", err.message);
