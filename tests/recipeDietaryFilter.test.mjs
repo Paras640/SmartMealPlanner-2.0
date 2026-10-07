@@ -18,9 +18,17 @@ test("vegan recipes exclude animal products without rejecting plant ingredient n
 test("unrestricted preferences do not hide recipes", () => {
   assert.equal(isRecipeAllowedForDiet({ mealType: "Chicken", ingredients: ["Chicken"] }, "All"), true);
   assert.equal(isRecipeAllowedForDiet({ mealType: "Chicken", ingredients: ["Chicken"] }, "Non-Veg"), true);
+  assert.equal(isRecipeAllowedForDiet({ mealType: "Beef", ingredients: ["Beef"] }, "All"), false);
 });
 
 test("does not allow vegetarian or vegan recipes without verifiable ingredients", () => {
   assert.equal(isRecipeAllowedForDiet({ mealType: "Vegetarian" }, "Veg"), false);
   assert.equal(isRecipeAllowedForDiet({ mealType: "Dessert" }, "Vegan"), false);
+});
+
+test("never returns beef recipes regardless of dietary preference", () => {
+  assert.equal(isRecipeAllowedForDiet({ title: "Beef Wellington", mealType: "Beef", ingredients: ["Beef"] }, "All"), false);
+  assert.equal(isRecipeAllowedForDiet({ title: "Roast dinner", mealType: "Dinner", ingredients: ["Veal"] }, "Non-Veg"), false);
+  assert.equal(isRecipeAllowedForDiet({ title: "Oxtail soup", mealType: "Soup", ingredients: ["Carrot"] }, "Keto"), false);
+  assert.equal(isRecipeAllowedForDiet({ title: "Roasted vegetables", mealType: "Vegetarian", ingredients: ["Potato", "Carrot"] }, "All"), true);
 });

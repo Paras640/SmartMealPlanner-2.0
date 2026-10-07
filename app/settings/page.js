@@ -5,6 +5,7 @@ import { auth } from '@/lib/firebaseConfig';
 import { onAuthStateChanged, deleteUser } from 'firebase/auth';
 import { toast } from 'sonner';
 import { Trash2, CheckCircle, Circle, Save } from 'lucide-react';
+import CountrySelect from '@/components/CountrySelect';
 import './settings.css';
 
 export default function SettingsPage() {
@@ -43,6 +44,7 @@ export default function SettingsPage() {
                     firebaseUID: firebaseUser.uid,
                     email: firebaseUser.email,
                     name: firebaseUser.displayName || "",
+                    country: "",
                     dietaryType: "All",
                     goal: "Healthy",
                     isAIEnabled: true,
@@ -97,6 +99,7 @@ export default function SettingsPage() {
                     email: user.email,
                     name: profile.name || user.displayName,
                     preferences: {
+                        country: profile.country,
                         isAIEnabled: profile.isAIEnabled,
                         goal: profile.goal,
                         dietaryType: profile.dietaryType
@@ -288,6 +291,15 @@ export default function SettingsPage() {
                 <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>Profile & Preferences</h2>
                 <div style={{ display: 'grid', gap: '20px' }}>
                     <div>
+                        <CountrySelect
+                            id="home-country"
+                            label="Home country"
+                            value={profile.country || ''}
+                            onChange={(country) => setProfile({ ...profile, country })}
+                        />
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '8px 0 0' }}>Your default country for recipe suggestions. You can browse other cuisines without changing this setting.</p>
+                    </div>
+                    <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Dietary Preference</label>
                         <select 
                             value={profile.dietaryType || 'All'}
@@ -315,8 +327,8 @@ export default function SettingsPage() {
                     </div>
                     <button 
                         onClick={handleSaveProfile} 
-                        disabled={savingProfile}
-                        style={{ padding: '12px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-start', opacity: savingProfile ? 0.7 : 1 }}
+                        disabled={savingProfile || !profile.country}
+                        style={{ padding: '12px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', alignSelf: 'flex-start', opacity: savingProfile || !profile.country ? 0.7 : 1 }}
                     >
                         <Save size={18} /> {savingProfile ? 'Saving...' : 'Save Profile'}
                     </button>
@@ -358,7 +370,7 @@ export default function SettingsPage() {
             <section className="settings-card" style={sectionStyle}>
                 <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>Favourite Recipes</h2>
                 {favourites.length === 0 ? (
-                    <p style={{ color: 'var(--text-muted)' }}>You haven't liked any recipes yet.</p>
+                    <p style={{ color: 'var(--text-muted)' }}>You haven&apos;t liked any recipes yet.</p>
                 ) : (
                     <div className="settings-favourites-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
                         {favourites.map(recipe => (

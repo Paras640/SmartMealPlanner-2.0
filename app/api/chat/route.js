@@ -18,6 +18,7 @@ Your capabilities:
 - Suggest ingredient substitutions
 - Help with dietary restrictions (vegan, keto, diabetic-friendly, gluten-free, etc.)
 - Calculate portion sizes and macros
+- Analyze food images and answer questions about them
 
 Rules:
 - ALWAYS stay on topic: food, nutrition, cooking, meal planning
@@ -25,6 +26,7 @@ Rules:
 - For recipe requests: include ingredients list, step-by-step instructions, and approx. calories
 - Keep responses concise but complete (2–5 paragraphs max)
 - Never make up dangerous nutrition advice — recommend consulting a doctor for medical dietary needs
+- Never suggest beef or recipes containing beef
 - CRITICAL: If you suggest a specific recipe/meal, or if the user asks you to generate/show an image, DO NOT say you cannot generate images. Instead, fulfill their request by saying "Here is a picture of [Dish Name]!" and you MUST append this exact tag at the very end of your response: [IMAGE: Exact Name of Dish]`;
 
 // ── Groq Client ──────────────────────────────────────────────────────────────
@@ -101,7 +103,7 @@ function fallbackResponse(message) {
   if (lower.includes("hello") || lower.includes("hi") || lower.includes("hey")) {
     text = "Hi there! 👋 I'm NutriBot. The AI servers are super busy right now, but I can still answer basic questions about recipes, meal plans, or nutrition facts!";
   } else if (lower.includes("recipe") || lower.includes("cook") || lower.includes("make") || lower.includes("how")) {
-    text = "I'd love to help with a recipe! 🍳 Since the AI is heavily loaded right now, I recommend trying a classic vegetable soup. Let me know if you need basic instructions!";
+    text = "I'd love to help with a recipe! 🍳 Since the AI is heavily loaded right now, try a classic vegetable soup. Let me know if you need basic instructions!";
   } else if (lower.includes("calorie") || lower.includes("nutrition") || lower.includes("healthy") || lower.includes("diet")) {
     text = "Great nutrition question! 🥗 For a balanced meal, aim for lean proteins, complex carbs, and plenty of vegetables. Keep it simple and colorful!";
   } else if (lower.includes("vegan") || lower.includes("vegetarian") || lower.includes("keto")) {

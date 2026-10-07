@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { initDb } from "@/lib/models";
 import { parseFamilyIdentifier } from "@/lib/familyInvite";
+import { hasBeef } from "@/lib/mealPlanValidation";
 
 // GET: Fetch family details by firebaseUID
 export async function GET(request) {
@@ -18,7 +19,9 @@ export async function GET(request) {
     const family = await db.FamilySync.findOne({ "members.firebaseUID": uid }).lean();
     
     if (family) {
-      family.sharedMealPlan = family.sharedMealPlan || null;
+      family.sharedMealPlan = family.sharedMealPlan && !hasBeef(family.sharedMealPlan)
+        ? family.sharedMealPlan
+        : null;
       family.mealPlanComments = family.mealPlanComments || [];
       const memberUids = family.members.map(m => m.firebaseUID);
       const users = await db.User.find({ firebaseUID: { $in: memberUids } }).lean();

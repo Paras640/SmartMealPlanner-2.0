@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initDb } from "@/lib/models";
-import { isValidMealPlan } from "@/lib/mealPlanValidation";
+import { hasBeef, isValidMealPlan } from "@/lib/mealPlanValidation";
 
 const MAX_PLAN_SIZE = 200_000;
 const MAX_COMMENT_LENGTH = 500;
@@ -16,7 +16,7 @@ export async function PUT(request) {
     const uid = typeof body.uid === "string" ? body.uid.trim() : "";
     const { plan } = body;
     if (!uid || !plan) return NextResponse.json({ error: "User and meal plan are required." }, { status: 400 });
-    if (!isValidMealPlan(plan)
+    if (!isValidMealPlan(plan) || hasBeef(plan)
       || !Array.isArray(plan.groceryList)
       || !plan.groceryList.every((item) => typeof item.name === "string" && typeof item.quantity === "string")) {
       return NextResponse.json({ error: "The meal plan must contain seven complete days and a valid grocery list." }, { status: 400 });

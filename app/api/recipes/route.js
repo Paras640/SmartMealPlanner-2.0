@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { initDb } from "@/lib/models";
 import { fetchMealDbSearch } from "@/lib/recipeSearch";
 import { isRecipeAllowedForDiet } from "@/lib/recipeDietaryFilter";
+import { fetchMealDbCountries, fetchMealDbMealsByCountry } from "@/lib/mealDbCountries";
 
 /**
  * Universal multi-stage recipe search using TheMealDB:
@@ -21,11 +22,54 @@ async function fetchWithFallback(query) {
   return { meals: [], matchedBy: "none" };
 }
 
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get("countries") === "1") {
+      return NextResponse.json({ countries: await fetchMealDbCountries() });
+    }
+
+    const query = searchParams.has("query") ? searchParams.get("query") || "" : "vegetarian";
+    const dietaryPreference = searchParams.get("diet") || "All";
+    const country = searchParams.get("country")?.trim() || "";
+
+    let meals;
+    let matchedBy = "universal-search";
+    if (country) {
+      meals = await fetchMealDbMealsByCountry(country, query.trim());
+      if (meals === null) {
+        return NextResponse.json({ error: "Choose a country from the available list." }, { status: 400 });
+      }
+      matchedBy = "country";
+    } else {
+      ({ meals, matchedBy } = await fetchWithFallback(query.trim() || "vegetarian"));
+    }
+
+    const details = await Promise.allSettled(meals.slice(0, 60).map(fetchFullMealDetails));
+    const candidateMeals = details.flatMap((result) => {
+      if (result.status === "fulfilled") return [result.value];
+      console.warn("[Recipes API] Could not verify recipe ingredients:", result.reason);
+      return [];
+    });
+
+    const recipes = candidateMeals
+      .filter((meal) => isRecipeAllowedForDiet(meal, dietaryPreference))
+      .slice(0, 24)
+      .map(mapMeal);
+
+    return NextResponse.json({ recipes, count: recipes.length, matchedBy });
+  } catch (err) {
+    console.error("[Recipes API] Internal error:", err.message);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 async function fetchFullMealDetails(meal) {
   const hasIngredients = Object.entries(meal).some(([key, value]) => (
     /^strIngredient\d+$/.test(key) && typeof value === "string" && value.trim()
   ));
-  if (hasIngredients || !meal.idMeal) return meal;
+  if (hasIngredients) return meal;
+  if (!meal.idMeal) throw new Error("Recipe search result did not include an ID.");
 
   const response = await fetch(
     `https://www.themealdb.com/api/json/v1/1/lookup.php?i=${encodeURIComponent(meal.idMeal)}`,
@@ -34,7 +78,13 @@ async function fetchFullMealDetails(meal) {
   if (!response.ok) throw new Error(`TheMealDB detail lookup failed with HTTP ${response.status}`);
 
   const data = await response.json();
-  return data.meals?.[0] || meal;
+  const details = data.meals?.[0];
+  if (!details || !Object.entries(details).some(([key, value]) => (
+    /^strIngredient\d+$/.test(key) && typeof value === "string" && value.trim()
+  ))) {
+    throw new Error(`TheMealDB did not return verifiable details for recipe ${meal.idMeal}.`);
+  }
+  return details;
 }
 
 function mapMeal(meal) {
@@ -49,7 +99,7 @@ function mapMeal(meal) {
 
   let readyInMinutes = 30;
   const cat = meal.strCategory ? meal.strCategory.toLowerCase() : "";
-  if (["dessert", "beef", "pork", "lamb"].includes(cat)) {
+  if (["dessert", "pork", "lamb"].includes(cat)) {
     readyInMinutes = 45 + Math.floor(Math.random() * 30);
   } else if (["breakfast", "starter"].includes(cat)) {
     readyInMinutes = 10 + Math.floor(Math.random() * 15);
@@ -74,37 +124,6 @@ function mapMeal(meal) {
     url: meal.strYoutube ?? meal.strSource ?? null,
     source: "TheMealDB",
   };
-}
-
-// ─── GET: Search recipes ──────────────────────────────────────────────────────
-
-export async function GET(request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const query = searchParams.get("query") || "vegetarian";
-    const dietaryPreference = searchParams.get("diet") || "All";
-
-    const { meals, matchedBy } = await fetchWithFallback(query.trim());
-    let candidateMeals = meals;
-    if (["veg", "vegan"].includes(dietaryPreference.toLowerCase())) {
-      const details = await Promise.allSettled(meals.map(fetchFullMealDetails));
-      candidateMeals = details.flatMap((result) => {
-        if (result.status === "fulfilled") return [result.value];
-        console.warn("[Recipes API] Could not verify recipe ingredients:", result.reason);
-        return [];
-      });
-    }
-
-    const recipes = candidateMeals
-      .filter((meal) => isRecipeAllowedForDiet(meal, dietaryPreference))
-      .slice(0, 24)
-      .map(mapMeal);
-
-    return NextResponse.json({ recipes, count: recipes.length, matchedBy });
-  } catch (err) {
-    console.error("[Recipes API] Internal error:", err.message);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
 }
 
 // ─── POST: Save a recipe to MongoDB ──────────────────────────────────────────

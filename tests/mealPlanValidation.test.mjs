@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { hasListedAllergen, isValidMealPlan } from "../lib/mealPlanValidation.js";
+import { hasBeef, hasListedAllergen, isValidMealPlan } from "../lib/mealPlanValidation.js";
 
 function createPlan() {
   return {
@@ -67,4 +67,13 @@ test("detects listed allergens in recipes, substitutions, and the shopping list"
 
   assert.equal(hasListedAllergen(createPlan(), [{ name: "Peanuts", quantity: "1 bag" }], ["peanut"]), true);
   assert.equal(hasListedAllergen(createPlan(), [], ["shellfish"]), false);
+});
+
+test("detects beef anywhere in generated meals or the grocery list", () => {
+  const plan = createPlan();
+  plan.days[0].meals[0].ingredients[0].name = "Beef stock";
+  assert.equal(hasBeef(plan), true);
+
+  const safePlan = createPlan();
+  assert.equal(hasBeef(safePlan), false);
 });

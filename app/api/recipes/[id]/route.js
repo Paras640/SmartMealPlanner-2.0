@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { containsBeef } from "@/lib/recipeDietaryFilter";
 
 export async function GET(request, { params }) {
   try {
@@ -14,6 +15,13 @@ export async function GET(request, { params }) {
     }
 
     const meal = data.meals[0];
+    if (containsBeef({
+      title: meal.strMeal,
+      mealType: meal.strCategory,
+      ingredients: Array.from({ length: 20 }, (_, index) => meal[`strIngredient${index + 1}`]).filter(Boolean),
+    })) {
+      return NextResponse.json({ error: "Recipe not found" }, { status: 404 });
+    }
     const ingredients = [];
     for (let i = 1; i <= 20; i++) {
       const ingredient = meal[`strIngredient${i}`];

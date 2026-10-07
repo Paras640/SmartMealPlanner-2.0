@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { randomUUID } from "node:crypto";
 import { initDb } from "@/lib/models";
-import { hasListedAllergen, isValidMealPlan } from "@/lib/mealPlanValidation";
+import { hasBeef, hasListedAllergen, isValidMealPlan } from "@/lib/mealPlanValidation";
 
 const MAX_INGREDIENTS = 40;
 const MAX_ALLERGIES = 20;
@@ -38,6 +38,8 @@ const SYSTEM_PROMPT = [
   "List only substitutions that are safe and relevant. Treat every listed allergy as a strict exclusion: never include the allergen or suggest it as a substitute.",
   "Before returning the plan, check every recipe and shopping-list ingredient against each listed allergy.",
   "Do not make medical claims or promise exact nutrition or prices. Respect the requested diet, servings, budget, pantry, and calorie target as closely as practical.",
+  "Never include beef, veal, oxtail, or ingredients derived from beef in recipes, substitutions, or the grocery list.",
+  "When a cuisine country is provided, make the meals reflect that country's cuisine where practical.",
   "Use pantry items first to reduce waste. For meals without a known exact nutrition value, provide reasonable estimates.",
 ].join(" ");
 
@@ -58,7 +60,8 @@ export async function GET(request) {
     const db = await initDb();
     if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
     const user = await db.User.findOne({ firebaseUID: uid }, { recentMealPlans: 1 }).lean();
-    return NextResponse.json({ recentPlans: [...(user?.recentMealPlans || [])].reverse() });
+    const recentPlans = [...(user?.recentMealPlans || [])].filter((plan) => !hasBeef(plan)).reverse();
+    return NextResponse.json({ recentPlans });
   } catch (error) {
     console.error("[Meal Planner GET]", error.message);
     return NextResponse.json({ error: "Could not load recent meal plans." }, { status: 500 });
@@ -75,6 +78,7 @@ export async function POST(request) {
     const dietaryPreference = typeof body.dietaryPreference === "string"
       ? body.dietaryPreference.trim().slice(0, 60)
       : "No preference";
+    const cookingCountry = typeof body.cookingCountry === "string" ? body.cookingCountry.trim().slice(0, 80) : "";
     const currency = CURRENCIES.has(body.currency) ? body.currency : "USD";
     const servings = Number(body.servings);
     const calorieTarget = body.calorieTarget ? Number(body.calorieTarget) : null;
@@ -82,6 +86,9 @@ export async function POST(request) {
 
     if (pantry.length === 0) {
       return NextResponse.json({ error: "Add at least one ingredient you have on hand." }, { status: 400 });
+    }
+    if (hasBeef({ pantry })) {
+      return NextResponse.json({ error: "One or more pantry ingredients are not supported." }, { status: 400 });
     }
     if (!Number.isInteger(servings) || servings < 1 || servings > 12) {
       return NextResponse.json({ error: "Servings must be between 1 and 12." }, { status: 400 });
@@ -102,6 +109,7 @@ export async function POST(request) {
     const requestDetails = JSON.stringify({
       pantry,
       dietaryPreference,
+      cookingCountry,
       allergies,
       servings,
       currency,
@@ -168,7 +176,7 @@ export async function POST(request) {
         continue;
       }
 
-      if (!isValidMealPlan(plan) || !Array.isArray(plan.groceryList)
+      if (!isValidMealPlan(plan) || hasBeef(plan) || !Array.isArray(plan.groceryList)
         || !plan.groceryList.every((item) => typeof item.name === "string" && typeof item.quantity === "string")) {
         console.warn(`[Meal Planner] AI response did not match the expected shape (attempt ${attempt + 1})`);
         continue;
