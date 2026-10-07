@@ -17,6 +17,9 @@ test("lists provider-supported countries and filters recipes by the selected cou
       });
     }
     if (url.pathname.endsWith("/filter.php") && url.searchParams.get("a") === "Indian") {
+      return Response.json({ meals: null });
+    }
+    if (url.pathname.endsWith("/filter.php") && url.searchParams.get("a") === "India") {
       return Response.json({ meals: [{ idMeal: "1" }, { idMeal: "2" }] });
     }
     throw new Error(`Unexpected provider request: ${url}`);
