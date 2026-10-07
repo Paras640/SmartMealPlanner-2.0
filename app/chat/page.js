@@ -442,9 +442,11 @@ export default function ChatPage() {
                 borderTop: 'none',
                 display: 'flex', 
                 flexWrap: 'wrap',
+                alignItems: 'center',
                 gap: '12px',
                 boxShadow: '0 -4px 30px rgba(0, 0, 0, 0.05)',
-                zIndex: 10
+                zIndex: 10,
+                boxSizing: 'border-box',
             }}>
                 {attachedImage && (
                     <div style={{ flexBasis: '100%', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -463,6 +465,7 @@ export default function ChatPage() {
                 <button 
                     onClick={() => fileInputRef.current?.click()}
                     title="Upload ingredients photo"
+                    className="chat-page-attach-button"
                     style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '12px', width: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
                 >
                     <Camera size={20} />
@@ -474,13 +477,15 @@ export default function ChatPage() {
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}
                     onPaste={handlePasteImage}
-                    style={{ flex: 1, padding: '14px 20px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(255,255,255,0.5)', color: 'var(--text-main)', fontSize: '1rem', outline: 'none', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}
+                    className="chat-page-message-input"
+                    style={{ flex: '1 1 120px', minWidth: 0, boxSizing: 'border-box', padding: '14px 20px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.1)', background: 'rgba(255,255,255,0.5)', color: 'var(--text-main)', fontSize: '1rem', outline: 'none', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}
                     disabled={isSending}
                 />
                 
                 {isSending ? (
                     <button 
                         onClick={stopGeneration}
+                        className="chat-page-send-button"
                         style={{ padding: '0 24px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(239,68,68,0.3)', transition: 'all 0.2s' }}
                     >
                         <StopCircle size={20} /> Stop
@@ -489,6 +494,7 @@ export default function ChatPage() {
                     <button 
                         id="chat-send-btn"
                         onClick={handleSend} 
+                        className="chat-page-send-button"
                         style={{ padding: '0 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(109,186,95,0.3)', transition: 'all 0.2s' }}
                     >
                         <Send size={20} /> Send

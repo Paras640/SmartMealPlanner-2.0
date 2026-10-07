@@ -20,8 +20,9 @@ export default function DashboardPage() {
     const fetchPersonalizedRecipes = useCallback(async (profileData) => {
         setLoadingRecipes(true);
         try {
-            const diet = profileData.dietaryType || profileData.mealPreference || 'All';
-            let query = diet === 'Vegan' ? 'Vegan' : diet === 'Non-Veg' || diet === 'Keto' || diet === 'Low-Carb' ? 'Seafood' : 'Vegetarian';
+            const savedDiet = profileData.dietaryType || profileData.mealPreference || 'All';
+            const diet = savedDiet === 'Keto' ? 'All' : savedDiet;
+            let query = diet === 'Vegan' ? 'Vegan' : diet === 'Non-Veg' || diet === 'Low-Carb' ? 'Seafood' : 'Vegetarian';
 
             if (profileData.healthConditions && profileData.healthConditions.length > 0) {
                 if (profileData.healthConditions.includes('hypertension')) {

@@ -313,11 +313,11 @@ const Chatbot = ({ isDark, trialDaysLeft, isPremium }) => {
                                     disabled={isSending}
                                 />
                                 {isSending ? (
-                                    <button onClick={stopGeneration} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <button onClick={stopGeneration} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', padding: '0 15px', minWidth: '90px', whiteSpace: 'nowrap', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                                         <StopCircle size={16} /> Stop
                                     </button>
                                 ) : (
-                                    <button className="send-btn" onClick={handleSend} style={{ background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', padding: '0 15px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <button className="send-btn" onClick={handleSend} style={{ background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '12px', padding: '0 15px', minWidth: '90px', whiteSpace: 'nowrap', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                                         <Send size={16} /> Send
                                     </button>
                                 )}

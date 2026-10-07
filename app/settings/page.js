@@ -36,6 +36,7 @@ export default function SettingsPage() {
                     const profRes = await fetch(`/api/users?uid=${firebaseUser.uid}`);
                     if (profRes.ok) {
                         profileData = await profRes.json();
+                        if (profileData.dietaryType === 'Keto') profileData.dietaryType = 'All';
                     }
                 } catch {}
                 // If user doesn't exist in DB yet, use a sensible default so the page renders
@@ -297,7 +298,6 @@ export default function SettingsPage() {
                             <option value="All">Anything</option>
                             <option value="Veg">Vegetarian</option>
                             <option value="Vegan">Vegan</option>
-                            <option value="Keto">Keto</option>
                         </select>
                     </div>
                     <div>

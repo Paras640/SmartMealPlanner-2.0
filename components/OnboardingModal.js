@@ -68,7 +68,6 @@ export default function OnboardingModal({ user, onComplete }) {
                                 <option value="All">Anything</option>
                                 <option value="Veg">Vegetarian</option>
                                 <option value="Vegan">Vegan</option>
-                                <option value="Keto">Keto</option>
                             </select>
                         </div>
                         <div>

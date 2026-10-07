@@ -60,7 +60,8 @@ export default function ProductsPage() {
                 const response = await fetch(`/api/users?uid=${encodeURIComponent(firebaseUser.uid)}`);
                 if (!response.ok) throw new Error('Could not load your saved dietary preference.');
                 const profile = await response.json();
-                setDietaryPreference(profile.dietaryType || profile.mealPreference || 'All');
+                const savedDiet = profile.dietaryType || profile.mealPreference || 'All';
+                setDietaryPreference(savedDiet === 'Keto' ? 'All' : savedDiet);
             } catch (error) {
                 console.error('Could not load recipe dietary preference:', error);
                 setFetchSource('Could not load your dietary preference. Recipes were not shown.');

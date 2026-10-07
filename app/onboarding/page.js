@@ -77,7 +77,7 @@ export default function OnboardingPage() {
           <div>
             <label style={{ display: "block", fontWeight: "700", marginBottom: "8px" }}>Primary Diet</label>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              {["Veg", "Non-Veg", "Vegan", "Keto", "Low-Carb"].map(diet => (
+              {["Veg", "Non-Veg", "Vegan", "Low-Carb"].map(diet => (
                 <button
                   key={diet} type="button"
                   onClick={() => setPreferences({ ...preferences, dietaryType: diet })}

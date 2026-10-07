@@ -76,9 +76,10 @@ export default function SmartMealPlanner() {
         if (res.ok) {
           const profile = await res.json();
           setAiEnabled(profile.isAIEnabled !== false);
-          const diet = profile.dietaryType || profile.mealPreference || "Veg";
+          const savedDiet = profile.dietaryType || profile.mealPreference || "Veg";
+          const diet = savedDiet === "Keto" ? "All" : savedDiet;
           setDietaryPreference(diet);
-          let targetQuery = diet === "Vegan" ? "Vegan" : diet === "Non-Veg" || diet === "Keto" || diet === "Low-Carb" ? "Seafood" : "Vegetarian";
+          let targetQuery = diet === "Vegan" ? "Vegan" : diet === "Non-Veg" || diet === "Low-Carb" ? "Seafood" : "Vegetarian";
           
           // Consider health conditions
           if (profile.healthConditions && profile.healthConditions.length > 0) {
@@ -131,10 +132,15 @@ export default function SmartMealPlanner() {
   const handleCategoryClick = (cat) => {
     setActiveCategory(cat);
     let targetQuery = cat;
-    if (cat === "all") targetQuery = dietaryPreference === "Vegan" ? "Vegan" : "Vegetarian";
+    if (cat === "all") {
+      targetQuery = dietaryPreference === "Vegan"
+        ? "Vegan"
+        : dietaryPreference === "Non-Veg" ? "Seafood" : "Vegetarian";
+    }
     else if (cat === "Non-Vegetarian") targetQuery = "Seafood";
     setQuery(targetQuery);
-    fetchRecipes(targetQuery, dietaryPreference);
+    const categoryDiet = ["Seafood", "Non-Vegetarian"].includes(cat) ? "Non-Veg" : dietaryPreference;
+    fetchRecipes(targetQuery, categoryDiet);
   };
 
   const categories = ["all", "Non-Vegetarian", "Seafood", "Vegetarian", "Dessert", "Pasta", "Vegan"];
