@@ -191,9 +191,9 @@ export default function DashboardPage() {
     return (
         <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh' }}>
             <header style={{ marginBottom: '40px' }}>
-                <h1 style={{ fontSize: '2.5rem', marginBottom: '10px' }}>Welcome back, {profile.name?.split(' ')[0]}! 👋</h1>
+                <h1 style={{ fontSize: '2.5rem', marginBottom: '10px' }}>Dashboard</h1>
                 <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
-                    Here are your personalized suggestions for your <strong>{profile.goal || "Healthy"}</strong> goal.
+                    Welcome back, {profile.name?.split(' ')[0]}! Here are your personalized suggestions for your <strong>{profile.goal || "Healthy"}</strong> goal.
                 </p>
             </header>
 
