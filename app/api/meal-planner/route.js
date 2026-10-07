@@ -4,6 +4,7 @@ import { hasListedAllergen, isValidMealPlan } from "@/lib/mealPlanValidation";
 
 const MAX_INGREDIENTS = 40;
 const MAX_ALLERGIES = 20;
+const MAX_GENERATION_ATTEMPTS = 2;
 const CURRENCIES = new Set(["USD", "INR", "EUR", "GBP", "CAD", "AUD"]);
 const PLAN_SCHEMA_EXAMPLE = JSON.stringify({
   days: [{
@@ -29,7 +30,7 @@ const PLAN_SCHEMA_EXAMPLE = JSON.stringify({
 const SYSTEM_PROMPT = [
   "Create practical, safe seven-day meal plans. Return only valid JSON matching this shape:",
   PLAN_SCHEMA_EXAMPLE,
-  "Include exactly seven days and 2-3 meals per day. Keep recipes concise: 3-6 ingredients and 2-4 short steps each.",
+  "Include exactly seven days and 2-3 meals per day. Keep recipes concise: 3-5 ingredients and 2-3 short steps each.",
   "Nutrition values are approximate per serving; meal cost is an approximate total for the requested servings in the requested currency.",
   "Consolidate the grocery list by ingredient, exclude items already in the pantry, and include quantities.",
   "List only substitutions that are safe and relevant. Treat every listed allergy as a strict exclusion: never include the allergen or suggest it as a substitute.",
@@ -79,64 +80,95 @@ export async function POST(request) {
     }
 
     const groq = new Groq({ apiKey });
-    const completion = await groq.chat.completions.create({
-      model: "openai/gpt-oss-120b",
-      temperature: 0.4,
-      max_tokens: 8192,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: SYSTEM_PROMPT,
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            pantry,
-            dietaryPreference,
-            allergies,
-            servings,
-            currency,
-            weeklyBudget: budget,
-            dailyCalorieTarget: calorieTarget,
-          }),
-        },
-      ],
-    });
-
-    const content = completion.choices[0]?.message?.content;
-    if (typeof content !== "string") {
-      console.error("[Meal Planner] AI returned no content");
-      return NextResponse.json({ error: "The planner did not return a meal plan. Please try again." }, { status: 502 });
-    }
-
-    let plan;
-    try {
-      plan = JSON.parse(content);
-    } catch (error) {
-      console.error("[Meal Planner] Could not parse AI response:", error.message);
-      return NextResponse.json({ error: "The planner returned an unreadable result. Please try again." }, { status: 502 });
-    }
-
-    if (!isValidMealPlan(plan) || !Array.isArray(plan.groceryList)
-      || !plan.groceryList.every((item) => typeof item.name === "string" && typeof item.quantity === "string")) {
-      console.error("[Meal Planner] AI response did not match the expected meal-plan shape");
-      return NextResponse.json({ error: "The planner returned an incomplete plan. Please try again." }, { status: 502 });
-    }
-
-    if (hasListedAllergen(plan, plan.groceryList, allergies)) {
-      console.warn("[Meal Planner] AI response contained an ingredient matching a listed allergy");
-      return NextResponse.json({ error: "The generated plan may contain an ingredient you listed as an allergy. Please try again." }, { status: 502 });
-    }
-
-    return NextResponse.json({
-      days: plan.days,
-      groceryList: plan.groceryList.slice(0, 120),
+    const requestDetails = JSON.stringify({
+      pantry,
+      dietaryPreference,
+      allergies,
+      servings,
       currency,
-      estimated: true,
+      weeklyBudget: budget,
+      dailyCalorieTarget: calorieTarget,
     });
+    let previousResponse = null;
+
+    for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
+      const messages = [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: requestDetails },
+      ];
+      if (previousResponse) {
+        messages.push(
+          { role: "assistant", content: previousResponse },
+          {
+            role: "user",
+            content: "The previous result was incomplete or invalid. Return a complete, compact, valid JSON plan with exactly seven days, two meals per day, every required nutrition field, and a groceryList. Do not omit fields or truncate the JSON. Avoid every listed allergy.",
+          },
+        );
+      }
+
+      const completion = await groq.chat.completions.create({
+        model: "openai/gpt-oss-120b",
+        temperature: 0.3,
+        max_completion_tokens: 16000,
+        reasoning_effort: "low",
+        response_format: { type: "json_object" },
+        messages,
+      });
+
+      const choice = completion.choices[0];
+      const content = choice?.message?.content;
+      if (typeof content !== "string") {
+        console.error("[Meal Planner] AI returned no content");
+        previousResponse = null;
+        continue;
+      }
+      previousResponse = content;
+
+      if (choice.finish_reason === "length") {
+        console.warn(`[Meal Planner] AI response was truncated (attempt ${attempt + 1})`);
+        continue;
+      }
+
+      let plan;
+      try {
+        plan = JSON.parse(content);
+      } catch (error) {
+        console.warn(`[Meal Planner] AI response was not valid JSON (attempt ${attempt + 1}):`, error.message);
+        continue;
+      }
+
+      if (!isValidMealPlan(plan) || !Array.isArray(plan.groceryList)
+        || !plan.groceryList.every((item) => typeof item.name === "string" && typeof item.quantity === "string")) {
+        console.warn(`[Meal Planner] AI response did not match the expected shape (attempt ${attempt + 1})`);
+        continue;
+      }
+
+      if (hasListedAllergen(plan, plan.groceryList, allergies)) {
+        console.warn(`[Meal Planner] AI response contained a listed allergen (attempt ${attempt + 1})`);
+        continue;
+      }
+
+      return NextResponse.json({
+        days: plan.days,
+        groceryList: plan.groceryList.slice(0, 120),
+        currency,
+        estimated: true,
+      });
+    }
+
+    console.error("[Meal Planner] Failed to produce a complete, safe plan after retries");
+    return NextResponse.json({ error: "The planner could not produce a complete plan this time. Please try again." }, { status: 502 });
   } catch (error) {
     console.error("[Meal Planner POST]", error.message);
-    return NextResponse.json({ error: "Could not create a meal plan right now. Please try again." }, { status: 500 });
+    if (error.status === 401 || error.status === 403) {
+      return NextResponse.json({ error: "Meal planning is not authorized. Check the server's GROQ_API_KEY configuration." }, { status: 503 });
+    }
+    if (error.status === 429) {
+      return NextResponse.json({ error: "The meal planning service is busy or its usage limit was reached. Please try again shortly." }, { status: 503 });
+    }
+    if (error.status >= 500) {
+      return NextResponse.json({ error: "The meal planning service is temporarily unavailable. Please try again shortly." }, { status: 503 });
+    }
+    return NextResponse.json({ error: "Could not create a meal plan right now. Please try again." }, { status: 502 });
   }
 }
