@@ -189,10 +189,48 @@
     margin: 1.25rem 0;
 }
 
+.family-plan-overview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 14px;
+    padding: 15px 17px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+}
+
+.family-plan-overview p,
+.family-plan-grocery-heading p {
+    margin: 4px 0 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.family-plan-overview-stats {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+}
+
+.family-plan-overview-stats span,
+.family-plan-day-summary span {
+    padding: 6px 9px;
+    border-radius: 20px;
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.family-plan-overview-stats strong {
+    color: var(--text-main);
+}
+
 .family-plan-days {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
 }
 
 .family-plan-day,
@@ -206,22 +244,44 @@
 }
 
 .family-plan-day {
-    padding: 16px;
+    min-width: 0;
+    padding: 17px;
 }
 
-.family-plan-day > h3 {
-    margin: 0 0 12px;
+.family-plan-day-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.family-plan-day-heading h3 {
+    margin: 0;
     font-size: 1.15rem;
+}
+
+.family-plan-day-heading > span {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+.family-plan-day-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 10px;
 }
 
 .family-plan-meals {
     display: grid;
     gap: 10px;
+    margin-top: 12px;
 }
 
 .family-plan-meal {
     padding: 14px;
     min-width: 0;
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
 }
 
 .family-plan-meal h4 {
@@ -242,20 +302,75 @@
     font-size: 0.8rem;
 }
 
-.family-plan-meal details {
+.family-recipe-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
     margin-top: 12px;
-    font-size: 0.88rem;
 }
 
-.family-plan-meal summary,
-.family-plan-groceries h3 {
-    cursor: pointer;
-    font-weight: 700;
+.family-recipe-section {
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-card) 86%, transparent);
 }
 
-.family-plan-meal li,
-.family-plan-groceries li {
-    margin: 5px 0;
+.family-recipe-section h5 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 8px;
+    color: var(--text-main);
+    font-size: 0.78rem;
+}
+
+.family-recipe-section h5 span {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+}
+
+.family-recipe-section ul,
+.family-recipe-section ol {
+    display: grid;
+    gap: 5px;
+    margin: 0;
+    padding: 0;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.45;
+}
+
+.family-recipe-section ul {
+    list-style: none;
+}
+
+.family-recipe-section ul li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+}
+
+.family-recipe-section ul li:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.family-recipe-section ul li span:first-child {
+    color: var(--text-main);
+}
+
+.family-recipe-section ul li span:last-child {
+    flex: 0 0 auto;
+    text-align: right;
+}
+
+.family-recipe-section ol {
+    padding-left: 18px;
 }
 
 .family-plan-editor,
@@ -311,20 +426,65 @@
 }
 
 .family-plan-groceries {
+    position: relative;
+}
+
+.family-plan-grocery-heading {
     display: flex;
-    align-items: flex-start;
-    gap: 18px;
-    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
 }
 
-.family-plan-groceries h3 {
-    margin: 0;
+.family-plan-grocery-heading h3 {
+    margin: 5px 0 0;
 }
 
-.family-plan-groceries ul {
-    margin: 0;
-    columns: 2;
+.family-plan-grocery-count {
+    flex: 0 0 auto;
     color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.family-plan-groceries .family-grocery-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 0;
+    margin: 0;
+    margin-top: 14px;
+    list-style: none;
+}
+
+.family-grocery-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+    padding: 10px 11px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    color: var(--text-main);
+    font-size: 0.8rem;
+}
+
+.family-grocery-list li strong {
+    flex: 0 0 auto;
+    color: var(--primary-color, #6dba5f);
+    font-size: 0.75rem;
+    text-align: right;
+}
+
+.family-plan-grocery-empty {
+    padding: 12px;
+    margin: 14px 0 0;
+    border-radius: 9px;
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    font-size: 0.84rem;
 }
 
 .family-plan-comments h3 {
@@ -585,6 +745,16 @@
         flex-direction: column;
     }
 
+    .family-plan-overview {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 13px;
+    }
+
+    .family-plan-overview-stats {
+        flex-wrap: wrap;
+    }
+
     .family-plan-actions {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -608,6 +778,10 @@
         padding: 12px;
     }
 
+    .family-recipe-details {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
     .family-ingredient-editor {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -616,11 +790,18 @@
         padding: 14px;
     }
 
-    .family-plan-groceries ul {
-        width: 100%;
-        columns: 1;
-        padding-left: 18px;
+    .family-plan-groceries .family-grocery-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .family-grocery-list li {
+        flex-direction: column;
+        gap: 4px;
         overflow-wrap: anywhere;
+    }
+
+    .family-grocery-list li strong {
+        text-align: left;
     }
 
     .family-comment-submit {
@@ -635,6 +816,10 @@
 @media (max-width: 380px) {
     .family-info-bar > div:last-child,
     .family-plan-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .family-plan-groceries .family-grocery-list {
         grid-template-columns: minmax(0, 1fr);
     }
 }

@@ -387,10 +387,28 @@ export default function FamilyPage() {
                             {familyInfo.sharedMealPlan ? (
                                 <>
                                     <p className="family-plan-collaboration-note">Everyone in the family can edit this plan and leave comments.</p>
+                                    <div className="family-plan-overview">
+                                        <div>
+                                            <span className="family-plan-eyebrow">WEEK AT A GLANCE</span>
+                                            <p>Meals, nutrition, ingredients, and cooking steps organized by day.</p>
+                                        </div>
+                                        <div className="family-plan-overview-stats">
+                                            <span><strong>{(draftPlan || familyInfo.sharedMealPlan).days.length}</strong> days</span>
+                                            <span><strong>{(draftPlan || familyInfo.sharedMealPlan).days.reduce((count, day) => count + day.meals.length, 0)}</strong> meals</span>
+                                        </div>
+                                    </div>
                                     <div className="family-plan-days">
                                         {(draftPlan || familyInfo.sharedMealPlan).days.map((day, dayIndex) => (
                                             <article className="family-plan-day" key={`${day.day}-${dayIndex}`}>
-                                                <h3>{day.day}</h3>
+                                                <div className="family-plan-day-heading">
+                                                    <h3>{day.day}</h3>
+                                                    <span>{day.meals.length} meals</span>
+                                                </div>
+                                                <div className="family-plan-day-summary">
+                                                    <span>{Math.round(day.meals.reduce((total, meal) => total + (Number(meal.calories) || 0), 0))} kcal</span>
+                                                    <span>{Math.round(day.meals.reduce((total, meal) => total + (Number(meal.protein) || 0), 0))}g protein</span>
+                                                    <span>~{Math.round(day.meals.reduce((total, meal) => total + (Number(meal.estimatedCost) || 0), 0))} {((draftPlan || familyInfo.sharedMealPlan).currency || 'USD')}</span>
+                                                </div>
                                                 <div className="family-plan-meals">
                                                     {day.meals.map((meal, mealIndex) => (
                                                         <div className="family-plan-meal" key={`${meal.type}-${mealIndex}`}>
@@ -453,11 +471,21 @@ export default function FamilyPage() {
                                                                         <span>{Math.round(meal.protein)}g protein</span>
                                                                         <span>{Math.round(meal.estimatedCost)} {familyInfo.sharedMealPlan.currency || 'USD'}</span>
                                                                     </div>
-                                                                    <details>
-                                                                        <summary>Ingredients &amp; cooking steps</summary>
-                                                                        <ul>{meal.ingredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>{ingredient.quantity} {ingredient.name}</li>)}</ul>
-                                                                        <ol>{meal.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
-                                                                    </details>
+                                                                    <div className="family-recipe-details">
+                                                                        <section className="family-recipe-section">
+                                                                            <h5>Ingredients <span>{meal.ingredients.length}</span></h5>
+                                                                            <ul>{meal.ingredients.map((ingredient, index) => (
+                                                                                <li key={`${ingredient.name}-${index}`}>
+                                                                                    <span>{ingredient.name}</span>
+                                                                                    <span>{ingredient.quantity}</span>
+                                                                                </li>
+                                                                            ))}</ul>
+                                                                        </section>
+                                                                        <section className="family-recipe-section">
+                                                                            <h5>Cooking steps</h5>
+                                                                            <ol>{meal.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
+                                                                        </section>
+                                                                    </div>
                                                                 </>
                                                             )}
                                                         </div>
@@ -468,8 +496,26 @@ export default function FamilyPage() {
                                     </div>
                                     {!draftPlan && (
                                         <div className="family-plan-groceries">
-                                            <h3>Shared grocery list</h3>
-                                            <ul>{familyInfo.sharedMealPlan.groceryList.map((item, index) => <li key={`${item.name}-${index}`}>{item.quantity} {item.name}</li>)}</ul>
+                                            <div className="family-plan-grocery-heading">
+                                                <div>
+                                                    <span className="family-plan-eyebrow">SHOPPING LIST</span>
+                                                    <h3>Shared groceries</h3>
+                                                    <p>Ingredients for the full family meal plan.</p>
+                                                </div>
+                                                <span className="family-plan-grocery-count">{familyInfo.sharedMealPlan.groceryList.length} items</span>
+                                            </div>
+                                            {familyInfo.sharedMealPlan.groceryList.length ? (
+                                                <ul className="family-grocery-list">
+                                                    {familyInfo.sharedMealPlan.groceryList.map((item, index) => (
+                                                        <li key={`${item.name}-${index}`}>
+                                                            <span>{item.name}</span>
+                                                            <strong>{item.quantity}</strong>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="family-plan-grocery-empty">No extra groceries needed for this plan.</p>
+                                            )}
                                         </div>
                                     )}
                                     <section className="family-plan-comments">
