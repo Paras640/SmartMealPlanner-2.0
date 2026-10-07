@@ -33,7 +33,7 @@ export default function DashboardPage() {
                         return;
                     }
                     setProfile(data);
-                    fetchPersonalizedRecipes(data.dietaryType);
+                    fetchPersonalizedRecipes(data);
                 } else {
                     router.push('/onboarding');
                 }
@@ -60,20 +60,32 @@ export default function DashboardPage() {
         return () => unsub();
     }, [router]);
 
-    const fetchPersonalizedRecipes = async (dietaryType) => {
+    const fetchPersonalizedRecipes = async (profileData) => {
         setLoadingRecipes(true);
         try {
             let query = 'Seafood'; 
-            if (dietaryType === 'Veg' || dietaryType === 'Vegan') query = 'Vegetarian';
-            if (dietaryType === 'Keto') query = 'Beef';
-            if (dietaryType === 'Non-Veg') query = 'Chicken';
+            if (profileData.dietaryType === 'Veg' || profileData.dietaryType === 'Vegan') query = 'Vegetarian';
+            if (profileData.dietaryType === 'Keto') query = 'Beef';
+            if (profileData.dietaryType === 'Non-Veg') query = 'Chicken';
             
-            const res = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?c=${query}`);
+            if (profileData.healthConditions && profileData.healthConditions.length > 0) {
+                if (profileData.healthConditions.includes('hypertension')) {
+                    query = 'healthy ' + query;
+                } else if (profileData.healthConditions.includes('diabetic')) {
+                    query = 'diabetic ' + query;
+                }
+            }
+            
+            const res = await fetch(`/api/recipes?query=${encodeURIComponent(query)}`);
             const data = await res.json();
             
-            if (data.meals) {
-                const shuffled = data.meals.sort(() => 0.5 - Math.random());
-                setRecipes(shuffled.slice(0, 6));
+            if (data.recipes) {
+                const shuffled = data.recipes.sort(() => 0.5 - Math.random());
+                setRecipes(shuffled.slice(0, 6).map(r => ({
+                    idMeal: r.id,
+                    strMeal: r.title,
+                    strMealThumb: r.image
+                })));
             }
         } catch (err) {
             toast.error("Failed to load suggestions");

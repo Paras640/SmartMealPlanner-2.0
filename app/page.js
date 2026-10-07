@@ -46,14 +46,14 @@ export default function SmartMealPlanner() {
   };
 
   useEffect(() => {
-    fetchRecipes("chicken");
     fetchRandomRecipe();
   }, []);
 
   useEffect(() => {
-    const refreshAiPreference = async (firebaseUser) => {
+    const refreshUserProfile = async (firebaseUser) => {
       if (!firebaseUser) {
         setAiEnabled(true);
+        fetchRecipes("chicken"); // Default for guests
         return;
       }
 
@@ -62,19 +62,38 @@ export default function SmartMealPlanner() {
         if (res.ok) {
           const profile = await res.json();
           setAiEnabled(profile.isAIEnabled !== false);
+          
+          let targetQuery = "chicken";
+          if (profile.dietaryType === "Veg" || profile.dietaryType === "Vegan") targetQuery = "Vegetarian";
+          else if (profile.dietaryType === "Keto") targetQuery = "Beef";
+          else if (profile.dietaryType === "Seafood") targetQuery = "Seafood";
+          
+          // Consider health conditions
+          if (profile.healthConditions && profile.healthConditions.length > 0) {
+            if (profile.healthConditions.includes("hypertension")) {
+              targetQuery = "healthy " + targetQuery; // "healthy" will trigger better search matches for hypertension
+            } else if (profile.healthConditions.includes("diabetic")) {
+              targetQuery = "diabetic " + targetQuery;
+            }
+          }
+          
+          setQuery(targetQuery);
+          fetchRecipes(targetQuery);
         } else {
           setAiEnabled(true);
+          fetchRecipes("chicken");
         }
       } catch {
         setAiEnabled(true);
+        fetchRecipes("chicken");
       }
     };
 
-    const unsub = onAuthStateChanged(auth, refreshAiPreference);
+    const unsub = onAuthStateChanged(auth, refreshUserProfile);
     const onAiSettingUpdated = () => {
       const currentUser = auth.currentUser;
       if (currentUser) {
-        refreshAiPreference(currentUser);
+        refreshUserProfile(currentUser);
       }
     };
 
