@@ -80,7 +80,7 @@ const Header = () => {
                         {link.label}
                     </Link>
                 ))}
-                {user && <Link href="/family" className={`nav-link ${isActive('/family')}`}>Dashboard</Link>}
+                {user && <Link href="/family" className={`nav-link ${isActive('/family')}`}>Family Sync</Link>}
                 <Link href="/about" className={`nav-link ${isActive('/about')}`}>About</Link>
             </nav>
 
@@ -101,7 +101,7 @@ const Header = () => {
                     ))}
                     {user ? (
                         <>
-                            <Link href="/family" className={`mobile-nav-link ${isActive('/family')}`} onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+                            <Link href="/family" className={`mobile-nav-link ${isActive('/family')}`} onClick={() => setMobileMenuOpen(false)}>Family Sync</Link>
                             <Link href="/about" className={`mobile-nav-link ${isActive('/about')}`} onClick={() => setMobileMenuOpen(false)}>About</Link>
                             <Link href="/settings" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Settings</Link>
                             <button className="mobile-nav-link mobile-nav-logout" onClick={handleLogout}>Log Out</button>
