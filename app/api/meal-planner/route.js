@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { randomUUID } from "node:crypto";
+import { initDb } from "@/lib/models";
 import { hasListedAllergen, isValidMealPlan } from "@/lib/mealPlanValidation";
 
 const MAX_INGREDIENTS = 40;
@@ -48,9 +50,26 @@ function cleanList(value, limit) {
     .slice(0, limit);
 }
 
+export async function GET(request) {
+  try {
+    const uid = new URL(request.url).searchParams.get("uid")?.trim();
+    if (!uid) return NextResponse.json({ error: "Missing user ID." }, { status: 400 });
+
+    const db = await initDb();
+    if (!db) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
+    const user = await db.User.findOne({ firebaseUID: uid }, { recentMealPlans: 1 }).lean();
+    return NextResponse.json({ recentPlans: [...(user?.recentMealPlans || [])].reverse() });
+  } catch (error) {
+    console.error("[Meal Planner GET]", error.message);
+    return NextResponse.json({ error: "Could not load recent meal plans." }, { status: 500 });
+  }
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
+    const firebaseUID = typeof body.firebaseUID === "string" ? body.firebaseUID.trim() : "";
+    const userName = typeof body.userName === "string" ? body.userName.trim().slice(0, 100) : "";
     const pantry = cleanList(body.pantry, MAX_INGREDIENTS);
     const allergies = cleanList(body.allergies, MAX_ALLERGIES);
     const dietaryPreference = typeof body.dietaryPreference === "string"
@@ -160,11 +179,70 @@ export async function POST(request) {
         continue;
       }
 
-      return NextResponse.json({
+      const generatedPlan = {
         days: plan.days,
         groceryList: plan.groceryList.slice(0, 120),
         currency,
         estimated: true,
+      };
+      let saved = false;
+      let familySynced = false;
+      let saveWarning = null;
+      let savedPlanId = null;
+      let savedAt = null;
+
+      if (firebaseUID) {
+        try {
+          const db = await initDb();
+          if (!db) {
+            saveWarning = "The plan was generated, but saving is temporarily unavailable.";
+          } else {
+            const savedPlan = {
+              ...generatedPlan,
+              id: randomUUID(),
+              generatedAt: new Date(),
+            };
+            savedPlanId = savedPlan.id;
+            savedAt = savedPlan.generatedAt;
+            await db.User.findOneAndUpdate(
+              { firebaseUID },
+              { $push: { recentMealPlans: { $each: [savedPlan], $slice: -10 } } },
+              { upsert: true, new: true, setDefaultsOnInsert: true },
+            );
+            saved = true;
+
+            const familyUpdate = await db.FamilySync.findOneAndUpdate(
+              { "members.firebaseUID": firebaseUID },
+              {
+                $set: {
+                  sharedMealPlan: {
+                    ...savedPlan,
+                    updatedAt: savedPlan.generatedAt,
+                    updatedBy: firebaseUID,
+                    updatedByName: userName || "Family member",
+                  },
+                },
+                $push: { recentSharedMealPlans: { $each: [savedPlan], $slice: -10 } },
+              },
+              { new: true },
+            );
+            familySynced = Boolean(familyUpdate);
+          }
+        } catch (error) {
+          console.error("[Meal Planner Save]", error.message);
+          saveWarning = "The plan was generated, but could not be saved. Please try again.";
+        }
+      } else {
+        saveWarning = "The plan was generated, but sign in again to save it.";
+      }
+
+      return NextResponse.json({
+        ...generatedPlan,
+        id: savedPlanId,
+        generatedAt: savedAt,
+        saved,
+        familySynced,
+        saveWarning,
       });
     }
 

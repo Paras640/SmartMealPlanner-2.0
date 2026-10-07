@@ -188,6 +188,53 @@
     margin-top: 34px;
 }
 
+.planner-recent-plans {
+    display: grid;
+    gap: 14px;
+    margin-top: 24px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--bg-card);
+    box-shadow: var(--shadow);
+}
+
+.planner-recent-plans h2 {
+    margin: 5px 0 0;
+    font-size: 1.2rem;
+}
+
+.planner-recent-list {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 2px 1px 6px;
+}
+
+.planner-recent-item {
+    display: grid;
+    min-width: 150px;
+    gap: 5px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+}
+
+.planner-recent-item:hover,
+.planner-recent-item.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-alpha);
+}
+
+.planner-recent-item span {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
 .planner-results-heading {
     display: flex;
     align-items: flex-end;

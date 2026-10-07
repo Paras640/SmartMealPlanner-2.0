@@ -32,6 +32,7 @@ export default function MealPlannerPage() {
     const [budget, setBudget] = useState("");
     const [currency, setCurrency] = useState("USD");
     const [plan, setPlan] = useState(null);
+    const [recentPlans, setRecentPlans] = useState([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isAddingGroceries, setIsAddingGroceries] = useState(false);
     const [isSharingPlan, setIsSharingPlan] = useState(false);
@@ -44,12 +45,22 @@ export default function MealPlannerPage() {
             if (!firebaseUser) return;
 
             try {
-                const response = await fetch(`/api/users?uid=${encodeURIComponent(firebaseUser.uid)}`);
-                if (!response.ok) return;
-                const profile = await response.json();
-                setDietaryPreference(profile.dietaryType === "Veg" ? "Vegetarian" : profile.dietaryType === "Vegan" ? "Vegan" : "No preference");
-                setAllergyInput(Array.isArray(profile.allergies) ? profile.allergies.join(", ") : "");
-                setCalorieTarget(profile.measurements?.dailyCalorieGoal ? String(profile.measurements.dailyCalorieGoal) : "");
+                const [profileResponse, plansResponse] = await Promise.all([
+                    fetch(`/api/users?uid=${encodeURIComponent(firebaseUser.uid)}`),
+                    fetch(`/api/meal-planner?uid=${encodeURIComponent(firebaseUser.uid)}`),
+                ]);
+                if (profileResponse.ok) {
+                    const profile = await profileResponse.json();
+                    setDietaryPreference(profile.dietaryType === "Veg" ? "Vegetarian" : profile.dietaryType === "Vegan" ? "Vegan" : "No preference");
+                    setAllergyInput(Array.isArray(profile.allergies) ? profile.allergies.join(", ") : "");
+                    setCalorieTarget(profile.measurements?.dailyCalorieGoal ? String(profile.measurements.dailyCalorieGoal) : "");
+                }
+                if (plansResponse.ok) {
+                    const data = await plansResponse.json();
+                    setRecentPlans(data.recentPlans || []);
+                } else {
+                    toast.error("Could not load your recent meal plans.");
+                }
             } catch (error) {
                 console.error("Could not load meal planner preferences:", error);
                 toast.error("Could not load your saved food preferences.");
@@ -79,6 +90,8 @@ export default function MealPlannerPage() {
                 body: JSON.stringify({
                     pantry: parseList(pantryInput),
                     allergies: parseList(allergyInput),
+                    firebaseUID: user.uid,
+                    userName: user.displayName || "",
                     dietaryPreference,
                     servings: Number(servings),
                     calorieTarget: calorieTarget ? Number(calorieTarget) : null,
@@ -88,8 +101,35 @@ export default function MealPlannerPage() {
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || "Could not create your meal plan.");
-            setPlan(data);
-            toast.success("Your weekly plan is ready.");
+            setPlan({
+                id: data.id,
+                generatedAt: data.generatedAt,
+                days: data.days,
+                groceryList: data.groceryList,
+                currency: data.currency,
+                estimated: data.estimated,
+            });
+            if (data.saveWarning) {
+                toast.warning(data.saveWarning);
+            } else if (data.familySynced) {
+                toast.success("Your plan is saved and shared with Family Sync.");
+            } else if (data.saved) {
+                toast.success("Your weekly plan is saved to recent plans.");
+                toast.info("Join a family group to share it in Family Sync.");
+            } else {
+                toast.success("Your weekly plan is ready.");
+            }
+            if (data.saved) {
+                try {
+                    const historyResponse = await fetch(`/api/meal-planner?uid=${encodeURIComponent(user.uid)}`);
+                    if (!historyResponse.ok) throw new Error("Could not refresh recent plans.");
+                    const history = await historyResponse.json();
+                    setRecentPlans(history.recentPlans || []);
+                } catch (error) {
+                    console.error("Plan was saved but history could not be refreshed:", error);
+                    toast.error("Plan was saved, but recent plans could not be refreshed.");
+                }
+            }
         } catch (error) {
             toast.error(error.message || "Could not create your meal plan.");
         } finally {
@@ -231,6 +271,33 @@ export default function MealPlannerPage() {
                     {!user && <p className="planner-login-note">Log in to generate a plan and save its grocery list.</p>}
                     <p className="planner-safety-note">Nutrition and cost figures are estimates. Allergy suggestions are not a guarantee—always check product labels and cross-contact risks.</p>
                 </form>
+
+                {recentPlans.length > 0 && (
+                    <section className="planner-recent-plans" aria-label="Recent meal plans">
+                        <div>
+                            <span className="meal-planner-eyebrow"><CalendarDays size={15} /> YOUR HISTORY</span>
+                            <h2>Recent plans</h2>
+                        </div>
+                        <div className="planner-recent-list">
+                            {recentPlans.map((recentPlan, index) => (
+                                <button
+                                    className={`planner-recent-item${plan?.id === recentPlan.id ? " active" : ""}`}
+                                    key={recentPlan.id || `${recentPlan.generatedAt}-${index}`}
+                                    type="button"
+                                    onClick={() => {
+                                        setPlan(recentPlan);
+                                        setCurrency(recentPlan.currency || "USD");
+                                        setGroceriesAdded(false);
+                                        setAppliedSwaps([]);
+                                    }}
+                                >
+                                    <strong>{new Date(recentPlan.generatedAt).toLocaleDateString()}</strong>
+                                    <span>{recentPlan.days.length} days · {recentPlan.days.reduce((count, day) => count + day.meals.length, 0)} meals</span>
+                                </button>
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 {plan && (
                     <section className="planner-results" aria-live="polite">
