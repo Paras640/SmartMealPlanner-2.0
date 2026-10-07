@@ -106,14 +106,26 @@ export async function POST(request) {
         );
       }
 
-      const completion = await groq.chat.completions.create({
-        model: "openai/gpt-oss-120b",
-        temperature: 0.3,
-        max_completion_tokens: 16000,
-        reasoning_effort: "low",
-        response_format: { type: "json_object" },
-        messages,
-      });
+      let completion;
+      try {
+        completion = await groq.chat.completions.create({
+          model: "openai/gpt-oss-120b",
+          temperature: 0.3,
+          max_completion_tokens: 16000,
+          reasoning_effort: "low",
+          response_format: { type: "json_object" },
+          messages,
+        });
+      } catch (error) {
+        const providerError = error.error?.error || error.error;
+        if (providerError?.code !== "json_validate_failed" || typeof providerError.failed_generation !== "string") {
+          throw error;
+        }
+
+        console.warn(`[Meal Planner] Provider rejected malformed JSON (attempt ${attempt + 1}); retrying with a repair prompt`);
+        previousResponse = providerError.failed_generation;
+        continue;
+      }
 
       const choice = completion.choices[0];
       const content = choice?.message?.content;
