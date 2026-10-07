@@ -86,14 +86,17 @@ const Header = () => {
 
             <button
                 className="mobile-menu-toggle"
+                type="button"
                 onClick={() => setMobileMenuOpen((prev) => !prev)}
-                aria-label="Toggle navigation"
+                aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-navigation"
             >
-                ☰ Menu
+                {mobileMenuOpen ? "✕ Close" : "☰ Menu"}
             </button>
 
             {mobileMenuOpen && (
-                <div className="mobile-nav-panel">
+                <nav className="mobile-nav-panel" id="mobile-navigation" aria-label="Mobile navigation">
                     {navLinks.filter(l => l.label !== 'About' && (l.href !== '/meal-planner' || user)).map((link) => (
                         <Link key={link.href} href={link.href} className={`mobile-nav-link ${isActive(link.href)}`} onClick={() => setMobileMenuOpen(false)}>
                             {link.label}
@@ -109,10 +112,9 @@ const Header = () => {
                     ) : (
                         <>
                             <Link href="/about" className={`mobile-nav-link ${isActive('/about')}`} onClick={() => setMobileMenuOpen(false)}>About</Link>
-                            <Link href="/login" className="mobile-nav-link" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
                         </>
                     )}
-                </div>
+                </nav>
             )}
 
             <div className="header-actions">

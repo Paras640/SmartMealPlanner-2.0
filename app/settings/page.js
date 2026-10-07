@@ -5,6 +5,7 @@ import { auth } from '@/lib/firebaseConfig';
 import { onAuthStateChanged, deleteUser } from 'firebase/auth';
 import { toast } from 'sonner';
 import { Trash2, CheckCircle, Circle, Save } from 'lucide-react';
+import './settings.css';
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -279,11 +280,11 @@ export default function SettingsPage() {
     };
 
     return (
-        <div style={{ padding: '40px 20px', maxWidth: '800px', margin: '0 auto', minHeight: '100vh' }}>
+        <div className="settings-page" style={{ padding: '40px 20px', maxWidth: '800px', margin: '0 auto', minHeight: '100vh' }}>
             <h1 style={{ fontSize: '2.5rem', marginBottom: '40px', fontWeight: '800' }}>Account Settings</h1>
 
             {/* Profile Settings */}
-            <section style={sectionStyle}>
+            <section className="settings-card" style={sectionStyle}>
                 <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>Profile & Preferences</h2>
                 <div style={{ display: 'grid', gap: '20px' }}>
                     <div>
@@ -323,7 +324,7 @@ export default function SettingsPage() {
             </section>
 
             {/* Grocery List */}
-            <section style={sectionStyle}>
+            <section className="settings-card" style={sectionStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '20px' }}>
                     <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Grocery List</h2>
                     {groceryList.length > 0 && (
@@ -354,12 +355,12 @@ export default function SettingsPage() {
             </section>
 
             {/* Favourites Section */}
-            <section style={sectionStyle}>
+            <section className="settings-card" style={sectionStyle}>
                 <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>Favourite Recipes</h2>
                 {favourites.length === 0 ? (
                     <p style={{ color: 'var(--text-muted)' }}>You haven't liked any recipes yet.</p>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
+                    <div className="settings-favourites-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
                         {favourites.map(recipe => (
                             <div 
                                 key={recipe._id} 
@@ -397,7 +398,7 @@ export default function SettingsPage() {
             </section>
 
             {/* Family Sync Section */}
-            <section style={sectionStyle}>
+            <section className="settings-card" style={sectionStyle}>
                 <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>Family Sync</h2>
                 
                 {!familyInfo ? (
@@ -460,7 +461,7 @@ export default function SettingsPage() {
             </section>
 
             {/* Danger Zone */}
-            <section style={{ ...sectionStyle, border: '1px solid #fee2e2', background: '#fef2f2' }}>
+            <section className="settings-card settings-danger-zone" style={{ ...sectionStyle, border: '1px solid #fee2e2', background: '#fef2f2' }}>
                 <h2 style={{ fontSize: '1.5rem', marginBottom: '10px', color: '#b91c1c' }}>Danger Zone</h2>
                 <p style={{ color: '#7f1d1d', marginBottom: '20px' }}>Once you delete your account, there is no going back. Please be certain.</p>
                 <button 

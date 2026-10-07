@@ -487,11 +487,35 @@
         align-items: flex-start;
         flex-direction: column;
     }
+
+    .planner-result-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .planner-result-actions > button {
+        flex: 1 1 180px;
+    }
 }
 
 @media (max-width: 520px) {
     .meal-planner-page {
-        padding: 28px 14px 52px;
+        padding: 22px 12px calc(40px + env(safe-area-inset-bottom));
+    }
+
+    .meal-planner-hero {
+        margin-bottom: 22px;
+        text-align: left;
+    }
+
+    .meal-planner-hero h1 {
+        font-size: clamp(1.8rem, 9vw, 2.5rem);
+    }
+
+    .planner-form,
+    .planner-shopping-list {
+        padding: 16px;
+        border-radius: 16px;
     }
 
     .planner-field-grid,
@@ -499,7 +523,33 @@
         grid-template-columns: 1fr;
     }
 
+    .planner-results-heading {
+        gap: 10px;
+    }
+
+    .planner-result-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .planner-result-actions > button {
+        width: 100%;
+    }
+
+    .planner-recent-plans {
+        padding: 14px;
+    }
+
     .planner-day-card {
         padding: 15px;
+    }
+
+    .planner-shopping-list li {
+        align-items: flex-start;
+    }
+
+    .planner-shopping-list li span:first-child {
+        min-width: 0;
+        overflow-wrap: anywhere;
     }
 }

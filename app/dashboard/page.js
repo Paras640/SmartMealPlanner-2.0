@@ -5,6 +5,7 @@ import { auth } from '@/lib/firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import OnboardingModal from '@/components/OnboardingModal';
 import { toast } from 'sonner';
+import './dashboard.css';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -189,7 +190,7 @@ export default function DashboardPage() {
     if (!profile) return null;
 
     return (
-        <div style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh' }}>
+        <div className="dashboard-page" style={{ padding: '40px 20px', maxWidth: '1200px', margin: '0 auto', minHeight: '100vh' }}>
             <header style={{ marginBottom: '40px' }}>
                 <h1 style={{ fontSize: '2.5rem', marginBottom: '10px' }}>Dashboard</h1>
                 <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
@@ -205,7 +206,7 @@ export default function DashboardPage() {
                 {loadingRecipes ? (
                     <div style={{ color: 'var(--text-muted)' }}>Curating your menu...</div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+                    <div className="dashboard-recipe-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
                         {recipes.map(meal => (
                             <div 
                                 key={meal.idMeal} 
@@ -237,9 +238,9 @@ export default function DashboardPage() {
                 {familyInfo && familyInfo.members && familyInfo.members.length > 0 && (
                     <div style={{ marginBottom: '30px' }}>
                         <h3 style={{ marginBottom: '15px', fontSize: '1.4rem' }}>Family Activity & Preferences</h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                        <div className="dashboard-family-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
                             {familyInfo.members.map(member => (
-                                <div key={member.firebaseUID} style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                <div className="dashboard-member-card" key={member.firebaseUID} style={{ padding: '20px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border)' }}>
                                     <h4 style={{ margin: '0 0 15px 0', fontSize: '1.2rem', color: 'var(--primary-color)' }}>
                                         {member.name || member.email} {member.firebaseUID === user.uid && "(You)"}
                                     </h4>
@@ -301,11 +302,11 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                    <div style={{ flex: '1', minWidth: '300px', padding: '20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
+                <div className="dashboard-family-actions" style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                    <div className="dashboard-family-action-card" style={{ flex: '1', minWidth: '300px', padding: '20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
                         <h3 style={{ marginBottom: '15px' }}>Add a Family Member</h3>
                         <p style={{ color: 'var(--text-muted)', marginBottom: '15px', fontSize: '0.9rem' }}>Invite a family member to your group.</p>
-                        <form onSubmit={handleInviteMember} style={{ display: 'flex', gap: '10px' }}>
+                        <form className="dashboard-family-action-form" onSubmit={handleInviteMember} style={{ display: 'flex', gap: '10px' }}>
                             <input 
                                 type="email" 
                                 placeholder="Email address" 
@@ -318,10 +319,10 @@ export default function DashboardPage() {
                         </form>
                     </div>
 
-                    <div style={{ flex: '1', minWidth: '300px', padding: '20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
+                    <div className="dashboard-family-action-card" style={{ flex: '1', minWidth: '300px', padding: '20px', background: 'var(--bg-card)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--border)' }}>
                         <h3 style={{ marginBottom: '15px' }}>Join a Group</h3>
                         <p style={{ color: 'var(--text-muted)', marginBottom: '15px', fontSize: '0.9rem' }}>Enter a family code to join an existing group.</p>
-                        <form onSubmit={handleJoinFamily} style={{ display: 'flex', gap: '10px' }}>
+                        <form className="dashboard-family-action-form" onSubmit={handleJoinFamily} style={{ display: 'flex', gap: '10px' }}>
                             <input 
                                 type="text" 
                                 placeholder="Family Code" 

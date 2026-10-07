@@ -517,3 +517,124 @@
 .dark-mode .mini-sync-btn {
     border-color: rgba(255, 255, 255, 0.2);
 }
+
+@media (max-width: 700px) {
+    .family-sync-page {
+        padding-top: 78px;
+        padding-bottom: calc(36px + env(safe-area-inset-bottom));
+    }
+
+    .family-container {
+        padding: 1.25rem 14px;
+    }
+
+    .family-container > h1 {
+        font-size: clamp(2rem, 9vw, 2.5rem);
+    }
+
+    .family-container > p {
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+    }
+
+    .family-setup {
+        gap: 14px;
+    }
+
+    .family-option-card {
+        flex-basis: 100%;
+        min-width: 0;
+        padding: 1.25rem;
+        border-radius: 16px;
+    }
+
+    .family-divider {
+        width: 100%;
+        font-size: 1rem;
+    }
+
+    .family-dashboard {
+        padding: 16px;
+        border-radius: 18px;
+    }
+
+    .family-info-bar {
+        align-items: stretch;
+        flex-direction: column;
+        margin-bottom: 1.25rem;
+        padding-bottom: 1.25rem;
+    }
+
+    .family-info-bar > div:last-child {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .family-info-bar .family-btn {
+        min-width: 0;
+        padding-inline: 10px;
+    }
+
+    .family-code-badge {
+        margin: 8px 0 0;
+        overflow-wrap: anywhere;
+    }
+
+    .family-plan-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .family-plan-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .family-plan-actions .family-btn {
+        min-width: 0;
+        padding: 10px 8px;
+        font-size: 0.84rem;
+    }
+
+    .family-plan-days {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .family-plan-day {
+        padding: 12px;
+    }
+
+    .family-plan-meal {
+        padding: 12px;
+    }
+
+    .family-ingredient-editor {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .family-plan-groceries {
+        padding: 14px;
+    }
+
+    .family-plan-groceries ul {
+        width: 100%;
+        columns: 1;
+        padding-left: 18px;
+        overflow-wrap: anywhere;
+    }
+
+    .family-comment-submit {
+        align-items: stretch;
+    }
+
+    .family-comment-submit .family-btn {
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 380px) {
+    .family-info-bar > div:last-child,
+    .family-plan-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
