@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { CalendarDays, Check, CircleAlert, DollarSign, LoaderCircle, ShoppingBasket, Sparkles, UtensilsCrossed } from "lucide-react";
+import { CalendarDays, Check, CircleAlert, DollarSign, LoaderCircle, Share2, ShoppingBasket, Sparkles, UtensilsCrossed } from "lucide-react";
 import { toast } from "sonner";
 import { auth } from "@/lib/firebaseConfig";
 import "./meal-planner.css";
@@ -34,6 +34,7 @@ export default function MealPlannerPage() {
     const [plan, setPlan] = useState(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isAddingGroceries, setIsAddingGroceries] = useState(false);
+    const [isSharingPlan, setIsSharingPlan] = useState(false);
     const [groceriesAdded, setGroceriesAdded] = useState(false);
     const [appliedSwaps, setAppliedSwaps] = useState([]);
 
@@ -122,6 +123,25 @@ export default function MealPlannerPage() {
             toast.error(error.message || "Could not add groceries.");
         } finally {
             setIsAddingGroceries(false);
+        }
+    };
+
+    const shareWithFamily = async () => {
+        if (!plan || !user) return;
+        setIsSharingPlan(true);
+        try {
+            const response = await fetch("/api/family/meal-plan", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ uid: user.uid, plan }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Could not share your plan.");
+            toast.success("Your 7-day plan is now available in Family Sync.");
+        } catch (error) {
+            toast.error(error.message || "Could not share your plan.");
+        } finally {
+            setIsSharingPlan(false);
         }
     };
 
@@ -220,10 +240,16 @@ export default function MealPlannerPage() {
                                 <h2>Seven days, planned.</h2>
                                 <p>Nutrition and prices are estimates; actual values vary by ingredients, portions, and local prices.</p>
                             </div>
-                            <button className="planner-grocery-button" onClick={addGroceries} disabled={isAddingGroceries || groceriesAdded || !plan.groceryList.length}>
-                                {groceriesAdded ? <Check size={17} /> : isAddingGroceries ? <LoaderCircle className="planner-spinner" size={17} /> : <ShoppingBasket size={17} />}
-                                {groceriesAdded ? "Added to groceries" : "Add grocery list"}
-                            </button>
+                            <div className="planner-result-actions">
+                                <button className="planner-grocery-button" onClick={shareWithFamily} disabled={isSharingPlan}>
+                                    {isSharingPlan ? <LoaderCircle className="planner-spinner" size={17} /> : <Share2 size={17} />}
+                                    {isSharingPlan ? "Sharing..." : "Share with family"}
+                                </button>
+                                <button className="planner-grocery-button" onClick={addGroceries} disabled={isAddingGroceries || groceriesAdded || !plan.groceryList.length}>
+                                    {groceriesAdded ? <Check size={17} /> : isAddingGroceries ? <LoaderCircle className="planner-spinner" size={17} /> : <ShoppingBasket size={17} />}
+                                    {groceriesAdded ? "Added to groceries" : "Add grocery list"}
+                                </button>
+                            </div>
                         </div>
 
                         {budget && weeklyCost > Number(budget) && (

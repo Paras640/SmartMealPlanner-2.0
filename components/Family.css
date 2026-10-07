@@ -1,18 +1,24 @@
 .family-sync-page {
     min-height: 100vh;
     padding-top: 100px;
+    padding-bottom: 64px;
+    background:
+        radial-gradient(ellipse at 12% 6%, rgba(109, 186, 95, 0.2), transparent 38%),
+        radial-gradient(ellipse at 88% 28%, rgba(79, 153, 214, 0.13), transparent 36%),
+        var(--bg);
 }
 
 .family-container {
-    max-width: 900px;
+    max-width: 1120px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 2rem clamp(1rem, 4vw, 2.5rem);
     text-align: center;
 }
 
-.family-container h2 {
+.family-container > h1 {
     font-size: 2.5rem;
-    margin-bottom: 0.5rem;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.04em;
 }
 
 .family-container>p {
@@ -33,10 +39,13 @@
 }
 
 .family-option-card {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 16px;
+    background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 75%, white);
+    border-radius: 20px;
     padding: 2.5rem;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     min-width: 260px;
     flex: 1;
     display: flex;
@@ -114,16 +123,257 @@
 
 /* Family Dashboard */
 .family-dashboard {
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 16px;
-    padding: 2.5rem;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07);
+    background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 80%, white);
+    border-radius: 24px;
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
     text-align: left;
 }
 
 .dark-mode .family-dashboard {
-    background: rgba(30, 30, 30, 0.9);
+    background: rgba(24, 30, 27, 0.82);
     color: var(--primary-text);
+}
+
+.family-meal-plan {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+}
+
+.family-plan-heading,
+.family-plan-actions,
+.family-comment-submit {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.family-plan-heading h2 {
+    margin: 6px 0;
+    font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+.family-plan-heading p,
+.family-plan-collaboration-note {
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.family-plan-eyebrow,
+.family-plan-meal-type {
+    color: var(--primary-color, #6dba5f);
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.family-plan-actions {
+    justify-content: flex-end;
+}
+
+.family-plan-actions .family-btn,
+.family-comment-submit .family-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.family-plan-collaboration-note {
+    margin: 1.25rem 0;
+}
+
+.family-plan-days {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 14px;
+}
+
+.family-plan-day,
+.family-plan-meal,
+.family-plan-groceries,
+.family-plan-comments {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--bg-card) 74%, transparent);
+    backdrop-filter: blur(12px);
+}
+
+.family-plan-day {
+    padding: 16px;
+}
+
+.family-plan-day > h3 {
+    margin: 0 0 12px;
+    font-size: 1.15rem;
+}
+
+.family-plan-meals {
+    display: grid;
+    gap: 10px;
+}
+
+.family-plan-meal {
+    padding: 14px;
+    min-width: 0;
+}
+
+.family-plan-meal h4 {
+    margin: 8px 0 5px;
+}
+
+.family-plan-meal > p {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.family-plan-nutrition {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.family-plan-meal details {
+    margin-top: 12px;
+    font-size: 0.88rem;
+}
+
+.family-plan-meal summary,
+.family-plan-groceries h3 {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.family-plan-meal li,
+.family-plan-groceries li {
+    margin: 5px 0;
+}
+
+.family-plan-editor,
+.family-plan-editor label {
+    display: grid;
+    gap: 8px;
+}
+
+.family-plan-editor {
+    margin-top: 12px;
+}
+
+.family-plan-editor label,
+.family-plan-editor fieldset {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 650;
+}
+
+.family-plan-editor input,
+.family-plan-editor textarea,
+.family-plan-comments textarea {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--bg);
+    color: var(--text-main);
+    font: inherit;
+    box-sizing: border-box;
+}
+
+.family-plan-editor fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.family-ingredient-editor {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(80px, 0.7fr);
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.family-plan-groceries,
+.family-plan-comments,
+.family-plan-empty {
+    margin-top: 18px;
+    padding: 18px;
+}
+
+.family-plan-groceries {
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.family-plan-groceries h3 {
+    margin: 0;
+}
+
+.family-plan-groceries ul {
+    margin: 0;
+    columns: 2;
+    color: var(--text-muted);
+}
+
+.family-plan-comments h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 0;
+}
+
+.family-plan-comments form {
+    display: grid;
+    gap: 8px;
+}
+
+.family-comment-submit {
+    justify-content: flex-end;
+}
+
+.family-comment-submit small,
+.family-plan-comments time {
+    color: var(--text-muted);
+}
+
+.family-plan-comments > ul {
+    display: grid;
+    gap: 10px;
+    padding: 0;
+    list-style: none;
+}
+
+.family-plan-comments > ul > li {
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--bg-hover);
+}
+
+.family-plan-comments > ul p {
+    margin: 6px 0;
+    white-space: pre-wrap;
+}
+
+.family-plan-comments time {
+    font-size: 0.75rem;
+}
+
+.family-plan-empty {
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    text-align: center;
 }
 
 .family-info-bar {

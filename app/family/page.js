@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { onAuthStateChanged } from 'firebase/auth';
 import { toast } from 'sonner';
-import { Trash2 } from 'lucide-react';
+import { Download, MessageCircle, Pencil, Save, Share2, Trash2, X } from 'lucide-react';
 import { auth } from '@/lib/firebaseConfig';
 import '@/components/Family.css';
 
@@ -23,6 +23,8 @@ export default function FamilyPage() {
     const [inviteInput, setInviteInput] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [draftPlan, setDraftPlan] = useState(null);
+    const [commentInput, setCommentInput] = useState('');
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -158,6 +160,92 @@ export default function FamilyPage() {
         toast.error('Sharing is not available on this device.');
     };
 
+    const updateDraftMeal = (dayIndex, mealIndex, update) => {
+        setDraftPlan((current) => {
+            const next = structuredClone(current);
+            next.days[dayIndex].meals[mealIndex] = update(next.days[dayIndex].meals[mealIndex]);
+            return next;
+        });
+    };
+
+    const handleSaveMealPlan = async () => {
+        if (!user || !draftPlan) return;
+        setSaving(true);
+        try {
+            const res = await fetch('/api/family/meal-plan', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: user.uid, plan: draftPlan }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Could not save the family meal plan.');
+            setFamilyInfo((current) => ({ ...current, sharedMealPlan: data.sharedMealPlan }));
+            setDraftPlan(null);
+            toast.success('Family meal plan updated.');
+        } catch (error) {
+            toast.error(error.message || 'Could not save the family meal plan.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleAddPlanComment = async (event) => {
+        event.preventDefault();
+        if (!user || !commentInput.trim()) return;
+        setSaving(true);
+        try {
+            const res = await fetch('/api/family/meal-plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: user.uid, text: commentInput.trim() }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.error || 'Could not add your comment.');
+            setFamilyInfo((current) => ({ ...current, mealPlanComments: data.comments }));
+            setCommentInput('');
+            toast.success('Comment added.');
+        } catch (error) {
+            toast.error(error.message || 'Could not add your comment.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDownloadPlan = () => {
+        const plan = familyInfo?.sharedMealPlan;
+        if (!plan) return;
+        const file = new Blob([JSON.stringify(plan, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(file);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'family-meal-plan.json';
+        link.click();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    const handleSharePlan = async () => {
+        const plan = familyInfo?.sharedMealPlan;
+        if (!plan) return;
+        const shareData = {
+            title: 'Family 7-day meal plan',
+            text: `Our family has a shared 7-day meal plan with ${plan.days.length} days of meals.`,
+            url: `${window.location.origin}/family`,
+        };
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+            } else if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(`${shareData.text} View it at ${shareData.url}`);
+            } else {
+                toast.error('Sharing is not available on this device.');
+                return;
+            }
+            toast.success('Family meal plan shared.');
+        } catch (error) {
+            if (error.name !== 'AbortError') toast.error('Could not share the family meal plan.');
+        }
+    };
+
     if (loading) {
         return (
             <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
@@ -251,6 +339,168 @@ export default function FamilyPage() {
                                 </li>
                             ))}
                         </ul>
+
+                        <section className="family-meal-plan">
+                            <div className="family-plan-heading">
+                                <div>
+                                    <span className="family-plan-eyebrow">SHARED WITH YOUR FAMILY</span>
+                                    <h2>7-day meal plan</h2>
+                                    {familyInfo.sharedMealPlan?.updatedByName && (
+                                        <p>Last updated by {familyInfo.sharedMealPlan.updatedByName}</p>
+                                    )}
+                                </div>
+                                {familyInfo.sharedMealPlan && (
+                                    <div className="family-plan-actions">
+                                        {draftPlan ? (
+                                            <>
+                                                <button className="family-btn primary" onClick={handleSaveMealPlan} disabled={saving}>
+                                                    <Save size={16} /> {saving ? 'Saving...' : 'Save edits'}
+                                                </button>
+                                                <button className="family-btn secondary" onClick={() => setDraftPlan(null)} disabled={saving}>
+                                                    <X size={16} /> Cancel
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button className="family-btn secondary" onClick={() => setDraftPlan(structuredClone(familyInfo.sharedMealPlan))}>
+                                                    <Pencil size={16} /> Edit plan
+                                                </button>
+                                                <button className="family-btn secondary" onClick={handleDownloadPlan}>
+                                                    <Download size={16} /> Download
+                                                </button>
+                                                <button className="family-btn primary" onClick={handleSharePlan}>
+                                                    <Share2 size={16} /> Share
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {familyInfo.sharedMealPlan ? (
+                                <>
+                                    <p className="family-plan-collaboration-note">Everyone in the family can edit this plan and leave comments.</p>
+                                    <div className="family-plan-days">
+                                        {(draftPlan || familyInfo.sharedMealPlan).days.map((day, dayIndex) => (
+                                            <article className="family-plan-day" key={`${day.day}-${dayIndex}`}>
+                                                <h3>{day.day}</h3>
+                                                <div className="family-plan-meals">
+                                                    {day.meals.map((meal, mealIndex) => (
+                                                        <div className="family-plan-meal" key={`${meal.type}-${mealIndex}`}>
+                                                            <span className="family-plan-meal-type">{meal.type}</span>
+                                                            {draftPlan ? (
+                                                                <div className="family-plan-editor">
+                                                                    <label>
+                                                                        Meal name
+                                                                        <input
+                                                                            value={meal.name}
+                                                                            onChange={(event) => updateDraftMeal(dayIndex, mealIndex, (current) => ({ ...current, name: event.target.value }))}
+                                                                        />
+                                                                    </label>
+                                                                    <label>
+                                                                        Description
+                                                                        <textarea
+                                                                            value={meal.description}
+                                                                            rows={2}
+                                                                            onChange={(event) => updateDraftMeal(dayIndex, mealIndex, (current) => ({ ...current, description: event.target.value }))}
+                                                                        />
+                                                                    </label>
+                                                                    <fieldset>
+                                                                        <legend>Ingredients</legend>
+                                                                        {meal.ingredients.map((ingredient, ingredientIndex) => (
+                                                                            <div className="family-ingredient-editor" key={ingredientIndex}>
+                                                                                <input
+                                                                                    aria-label="Ingredient name"
+                                                                                    value={ingredient.name}
+                                                                                    onChange={(event) => updateDraftMeal(dayIndex, mealIndex, (current) => ({
+                                                                                        ...current,
+                                                                                        ingredients: current.ingredients.map((item, index) => index === ingredientIndex ? { ...item, name: event.target.value } : item),
+                                                                                    }))}
+                                                                                />
+                                                                                <input
+                                                                                    aria-label="Ingredient quantity"
+                                                                                    value={ingredient.quantity}
+                                                                                    onChange={(event) => updateDraftMeal(dayIndex, mealIndex, (current) => ({
+                                                                                        ...current,
+                                                                                        ingredients: current.ingredients.map((item, index) => index === ingredientIndex ? { ...item, quantity: event.target.value } : item),
+                                                                                    }))}
+                                                                                />
+                                                                            </div>
+                                                                        ))}
+                                                                    </fieldset>
+                                                                    <label>
+                                                                        Cooking steps (one per line)
+                                                                        <textarea
+                                                                            value={meal.steps.join('\n')}
+                                                                            rows={3}
+                                                                            onChange={(event) => updateDraftMeal(dayIndex, mealIndex, (current) => ({ ...current, steps: event.target.value.split('\n') }))}
+                                                                        />
+                                                                    </label>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <h4>{meal.name}</h4>
+                                                                    <p>{meal.description}</p>
+                                                                    <div className="family-plan-nutrition">
+                                                                        <span>{Math.round(meal.calories)} kcal</span>
+                                                                        <span>{Math.round(meal.protein)}g protein</span>
+                                                                        <span>{Math.round(meal.estimatedCost)} {familyInfo.sharedMealPlan.currency || 'USD'}</span>
+                                                                    </div>
+                                                                    <details>
+                                                                        <summary>Ingredients &amp; cooking steps</summary>
+                                                                        <ul>{meal.ingredients.map((ingredient, index) => <li key={`${ingredient.name}-${index}`}>{ingredient.quantity} {ingredient.name}</li>)}</ul>
+                                                                        <ol>{meal.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
+                                                                    </details>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </article>
+                                        ))}
+                                    </div>
+                                    {!draftPlan && (
+                                        <div className="family-plan-groceries">
+                                            <h3>Shared grocery list</h3>
+                                            <ul>{familyInfo.sharedMealPlan.groceryList.map((item, index) => <li key={`${item.name}-${index}`}>{item.quantity} {item.name}</li>)}</ul>
+                                        </div>
+                                    )}
+                                    <section className="family-plan-comments">
+                                        <h3><MessageCircle size={18} /> Family comments</h3>
+                                        <form onSubmit={handleAddPlanComment}>
+                                            <textarea
+                                                value={commentInput}
+                                                maxLength={500}
+                                                rows={3}
+                                                placeholder="Suggest a meal or leave a note for the family..."
+                                                onChange={(event) => setCommentInput(event.target.value)}
+                                                required
+                                            />
+                                            <div className="family-comment-submit">
+                                                <small>{commentInput.length}/500</small>
+                                                <button className="family-btn primary" type="submit" disabled={saving || !commentInput.trim()}>
+                                                    {saving ? 'Posting...' : 'Add comment'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                        <ul>
+                                            {(familyInfo.mealPlanComments || []).map((comment, index) => (
+                                                <li key={`${comment.uid}-${comment.createdAt}-${index}`}>
+                                                    <strong>{comment.name}</strong>
+                                                    <p>{comment.text}</p>
+                                                    <time>{new Date(comment.createdAt).toLocaleString()}</time>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </section>
+                                </>
+                            ) : (
+                                <div className="family-plan-empty">
+                                    <p>No shared plan yet. Create a 7-day meal plan, then choose <strong>Share with family</strong> to make it available here.</p>
+                                    <button className="family-btn primary" onClick={() => router.push('/meal-planner')}>Create a meal plan</button>
+                                </div>
+                            )}
+                        </section>
                     </section>
                 )}
             </div>

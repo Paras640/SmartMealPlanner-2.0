@@ -139,7 +139,7 @@ const Header = () => {
                                     <strong style={{ display: 'block', fontSize: '0.95rem' }}>{user.displayName || 'User'}</strong>
                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{user.email}</span>
                                 </div>
-                                <Link href="/family" className="lang-option" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>📊 Dashboard</Link>
+                                <Link href="/dashboard" className="lang-option" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>📊 Dashboard</Link>
                                 <Link href="/settings" className="lang-option" onClick={() => setUserMenuOpen(false)} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>⚙️ Settings</Link>
                                 <div
                                     className="lang-option"

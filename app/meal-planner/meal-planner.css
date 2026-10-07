@@ -142,6 +142,13 @@
     padding: 0 16px;
 }
 
+.planner-result-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
 .planner-generate-button:hover:not(:disabled),
 .planner-grocery-button:hover:not(:disabled) {
     filter: brightness(1.06);

@@ -18,6 +18,8 @@ export async function GET(request) {
     const family = await db.FamilySync.findOne({ "members.firebaseUID": uid }).lean();
     
     if (family) {
+      family.sharedMealPlan = family.sharedMealPlan || null;
+      family.mealPlanComments = family.mealPlanComments || [];
       const memberUids = family.members.map(m => m.firebaseUID);
       const users = await db.User.find({ firebaseUID: { $in: memberUids } }).lean();
       const recipes = await db.Recipe.find({ likes: { $in: memberUids } }).lean();
