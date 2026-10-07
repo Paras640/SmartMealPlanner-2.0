@@ -3,9 +3,15 @@ import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebaseConfig";
 import { onAuthStateChanged } from "firebase/auth";
-import { Bot, Send, Trash2, Edit2, Check, X, Camera, StopCircle, RefreshCw } from "lucide-react";
+import { Bot, Send, Trash2, Edit2, Check, X, Camera, StopCircle, RefreshCw, ChevronDown, Cpu } from "lucide-react";
 import { toast } from "sonner";
 import "@/styles/Chatbot.css"; 
+
+const CHAT_MODELS = [
+    { id: "openai/gpt-oss-120b", name: "GPT-OSS 120B", description: "Powerful and detailed" },
+    { id: "openai/gpt-oss-20b", name: "GPT-OSS 20B", description: "Fast and balanced" },
+    { id: "qwen/qwen3.8-27b", name: "Qwen 3.8 27B", description: "Lightweight" },
+];
 
 export default function ChatPage() {
     const router = useRouter();
@@ -16,9 +22,35 @@ export default function ChatPage() {
     const [editingId, setEditingId] = useState(null);
     const [editContent, setEditContent] = useState("");
     const [selectedModel, setSelectedModel] = useState("openai/gpt-oss-120b");
+    const [isModelPickerOpen, setIsModelPickerOpen] = useState(false);
     const messagesEndRef = useRef(null);
     const fileInputRef = useRef(null);
     const abortControllerRef = useRef(null);
+    const modelPickerRef = useRef(null);
+    const modelPickerTriggerRef = useRef(null);
+
+    useEffect(() => {
+        if (!isModelPickerOpen) return;
+
+        const handlePointerDown = (event) => {
+            if (!modelPickerRef.current?.contains(event.target)) {
+                setIsModelPickerOpen(false);
+            }
+        };
+        const handleKeyDown = (event) => {
+            if (event.key === "Escape") {
+                setIsModelPickerOpen(false);
+                modelPickerTriggerRef.current?.focus();
+            }
+        };
+
+        document.addEventListener("pointerdown", handlePointerDown);
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
+            document.removeEventListener("pointerdown", handlePointerDown);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [isModelPickerOpen]);
 
     useEffect(() => {
         const unsub = onAuthStateChanged(auth, (firebaseUser) => {
@@ -232,9 +264,10 @@ export default function ChatPage() {
     if (!user) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
 
     const userName = user.displayName || user.name || user.email?.split('@')[0] || "there";
+    const activeModel = CHAT_MODELS.find((model) => model.id === selectedModel) || CHAT_MODELS[0];
 
     return (
-        <div style={{ 
+        <div className="chat-page" style={{
             maxWidth: '950px', 
             margin: '0 auto', 
             padding: '20px', 
@@ -269,17 +302,48 @@ export default function ChatPage() {
                         <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>Always here to help you eat better</p>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <select 
-                        value={selectedModel}
-                        onChange={(e) => setSelectedModel(e.target.value)}
-                        style={{ padding: '8px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', cursor: 'pointer', outline: 'none', backdropFilter: 'blur(5px)' }}
-                        title="Select an AI Model"
-                    >
-                        <option value="openai/gpt-oss-120b">GPT-OSS 120B (Powerful & Detailed)</option>
-                        <option value="openai/gpt-oss-20b">GPT-OSS 20B (Fast & Balanced)</option>
-                        <option value="qwen/qwen3.8-27b">Qwen 3.8 27B (Lightweight)</option>
-                    </select>
+                <div className="chat-page-header-actions">
+                    <div className="model-picker" ref={modelPickerRef}>
+                        <button
+                            ref={modelPickerTriggerRef}
+                            type="button"
+                            className="model-picker-trigger"
+                            aria-haspopup="menu"
+                            aria-expanded={isModelPickerOpen}
+                            aria-label={`AI model: ${activeModel.name}`}
+                            onClick={() => setIsModelPickerOpen((open) => !open)}
+                        >
+                            <span className="model-picker-icon"><Cpu size={17} /></span>
+                            <span className="model-picker-current">
+                                <span className="model-picker-label">AI MODEL</span>
+                                <span className="model-picker-name">{activeModel.name}</span>
+                            </span>
+                            <ChevronDown className="model-picker-chevron" size={16} />
+                        </button>
+                        {isModelPickerOpen && (
+                            <div className="model-picker-menu" role="menu" aria-label="Select an AI model">
+                                {CHAT_MODELS.map((model) => (
+                                    <button
+                                        key={model.id}
+                                        type="button"
+                                        role="menuitemradio"
+                                        aria-checked={selectedModel === model.id}
+                                        className={`model-picker-option${selectedModel === model.id ? " is-selected" : ""}`}
+                                        onClick={() => {
+                                            setSelectedModel(model.id);
+                                            setIsModelPickerOpen(false);
+                                        }}
+                                    >
+                                        <span className="model-picker-option-copy">
+                                            <span className="model-picker-option-name">{model.name}</span>
+                                            <span className="model-picker-option-description">{model.description}</span>
+                                        </span>
+                                        {selectedModel === model.id && <Check size={17} aria-hidden="true" />}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                     
                     <button 
                         onClick={handleClearChat}
@@ -323,21 +387,15 @@ export default function ChatPage() {
                         alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
                         marginBottom: '20px'
                     }}>
-                        <div style={{ 
+                        <div className={`chat-page-message chat-bubble-group ${msg.role === 'user' ? 'chat-page-message-user' : 'chat-page-message-bot'}`} style={{
                             maxWidth: '78%', 
                             padding: '14px 18px', 
                             borderRadius: msg.role === 'user' ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
-                            background: msg.role === 'user' 
-                                ? 'linear-gradient(135deg, var(--primary-color), var(--primary-hover))' 
-                                : 'rgba(255,255,255,0.6)',
-                            backdropFilter: msg.role === 'user' ? 'none' : 'blur(10px)',
-                            border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.8)',
-                            color: msg.role === 'user' ? '#fff' : 'var(--text-main)',
                             boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
                             position: 'relative',
                             animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
                             transformOrigin: msg.role === 'user' ? 'bottom right' : 'bottom left',
-                        }} className="chat-bubble-group">
+                        }}>
                             
                             {editingId === msg._id ? (
                                 <div>
